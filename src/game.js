@@ -832,21 +832,15 @@ class Game {
         // Clear the canvas
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Render grid
+
+        // Render only updated cells
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
                 const element = this.grid[y][x];
-                
+
                 // Skip empty cells
                 if (element === ELEMENT_TYPES.EMPTY) continue;
-                
-                // Special handling for exit when open
-                if (element === ELEMENT_TYPES.EXIT && this.exitOpen) {
-                    // Animated exit gets drawn separately
-                    continue;
-                }
-                
+
                 // Draw the element
                 this.ctx.drawImage(
                     this.sprites[element],
@@ -857,15 +851,15 @@ class Game {
                 );
             }
         }
-        
+
         // Handle exit animation when open
         if (this.exitOpen) {
             const exitX = this.exitPosition.x * TILE_SIZE;
             const exitY = this.exitPosition.y * TILE_SIZE;
-            
+
             // Add pulsing effect to the exit
             const pulseScale = 1 + 0.1 * Math.sin(Date.now() / 200);
-            
+
             this.ctx.save();
             this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
             this.ctx.scale(pulseScale, pulseScale);
@@ -878,7 +872,7 @@ class Game {
             );
             this.ctx.restore();
         }
-        
+
         // Draw particles
         this.drawParticles();
     }

@@ -116,38 +116,38 @@ function drawDirt(ctx, color) {
  * @param {string} color - The main color
  */
 function drawBoulder(ctx, color) {
-    // Create a rounded boulder
     const centerX = TILE_SIZE / 2;
     const centerY = TILE_SIZE / 2;
     const radius = TILE_SIZE / 2.2;
-    
+
     // Add a gradient to give 3D effect
     const gradient = ctx.createRadialGradient(
-        centerX - radius/3, centerY - radius/3, 0,
-        centerX, centerY, radius
+        centerX - radius / 3,
+        centerY - radius / 3,
+        0,
+        centerX,
+        centerY,
+        radius
     );
-    
+
     gradient.addColorStop(0, lightenColor(color, 0.8));
     gradient.addColorStop(0.5, color);
     gradient.addColorStop(1, darkenColor(color, 0.7));
-    
+
     // Draw the boulder
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     ctx.fill();
-    
-    // Add some texture/cracks
-    ctx.strokeStyle = darkenColor(color, 0.6);
+
+    // Add cracks for texture
+    ctx.strokeStyle = darkenColor(color, 0.5);
     ctx.lineWidth = 1;
-    
-    // Random cracks
     for (let i = 0; i < 3; i++) {
         const startX = centerX + (Math.random() - 0.5) * radius;
         const startY = centerY + (Math.random() - 0.5) * radius;
         const endX = startX + (Math.random() - 0.5) * (radius / 2);
         const endY = startY + (Math.random() - 0.5) * (radius / 2);
-        
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.lineTo(endX, endY);

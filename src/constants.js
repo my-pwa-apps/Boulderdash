@@ -1,5 +1,5 @@
 // Game constants
-export const TILE_SIZE = 32;
+export const TILE_SIZE = 24; // Reduced for better scaling
 export const GRID_WIDTH = 40;
 export const GRID_HEIGHT = 22;
 
@@ -30,11 +30,11 @@ export const COLORS = {
 // Game settings
 export const GAME_SETTINGS = {
     DIAMOND_VALUE: 10,
-    REQUIRED_DIAMONDS_PERCENT: 0.8, // You need to collect 80% of diamonds to open the exit
-    INITIAL_TIME: 120, // in seconds
-    ENEMY_SPEED: 0.5, // Moves per second
-    BOULDER_FALL_SPEED: 5, // Frames per movement
-    LEVEL_COUNT: 5
+    REQUIRED_DIAMONDS_PERCENT: 0.75, // Reduced to make levels easier
+    INITIAL_TIME: 150, // Increased for more relaxed gameplay
+    ENEMY_SPEED: 0.4, // Slightly slower enemies
+    BOULDER_FALL_SPEED: 4, // Faster falling boulders
+    LEVEL_COUNT: 10 // Increased level count
 };
 
 // Direction constants

@@ -63,6 +63,15 @@ export class GamePhysics {
         if (y + 1 < this.height && this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
             return true;
         }
+
+        // Check if the object can roll off an edge
+        if (y + 1 < this.height) {
+            const below = this.grid[y + 1][x];
+            if (below === ELEMENT_TYPES.BOULDER || below === ELEMENT_TYPES.DIAMOND) {
+                return this.canRoll(x, y);
+            }
+        }
+
         return false;
     }
     
