@@ -10,6 +10,7 @@ export class GamePhysics {
         this.width = this.grid[0].length;
         this.height = this.grid.length;
         this.fallingObjects = new Set(); // Track falling boulders and diamonds
+        this.lastUpdatedCell = null; // Track the last updated cell for animation
     }
     
     /**
@@ -19,6 +20,7 @@ export class GamePhysics {
     update() {
         // Clear the set of falling objects
         this.fallingObjects.clear();
+        this.lastUpdatedCell = null;
         
         // Check for falling boulders and diamonds
         let physicsUpdated = false;
@@ -35,11 +37,13 @@ export class GamePhysics {
                         this.grid[y + 1][x] = element;
                         this.grid[y][x] = ELEMENT_TYPES.EMPTY;
                         this.fallingObjects.add(`${x},${y+1}`);
+                        this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
                         physicsUpdated = true;
                     }
                     // Check if object can roll
                     else if (this.canRoll(x, y)) {
                         physicsUpdated = true;
+                        // The tryRoll method handles the cell update tracking
                     }
                 }
             }
@@ -115,6 +119,12 @@ export class GamePhysics {
             this.grid[y][x + direction] = element;
             this.grid[y][x] = ELEMENT_TYPES.EMPTY;
             
+            // Track the last updated cell
+            this.lastUpdatedCell = { x: x + direction, y, type: 'roll' };
+            
+            // Add to falling objects for next update
+            this.fallingObjects.add(`${x+direction},${y}`);
+            
             return true;
         }
         
@@ -132,7 +142,7 @@ export class GamePhysics {
     }
     
     /**
-     * Handle player movement
+     * Handle player movement with pushing mechanics
      * @param {number} playerX - Player's current x position
      * @param {number} playerY - Player's current y position
      * @param {string} direction - Direction to move
@@ -235,6 +245,10 @@ export class GamePhysics {
             
             // Move the boulder
             this.grid[targetY][targetX] = ELEMENT_TYPES.BOULDER;
+            
+            // Track the boulder as a falling object so it can continue falling on next update
+            this.fallingObjects.add(`${targetX},${targetY}`);
+            
             return true;
         }
         
@@ -254,6 +268,20 @@ export class GamePhysics {
             
             if ((aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) &&
                 this.isFallingAt(playerX, playerY - 1)) {
+                return true;
+            }
+        }
+        
+        // Also check if player is crushed from the sides (boulder rolling onto player)
+        if (this.lastUpdatedCell && 
+            this.lastUpdatedCell.type === 'roll' &&
+            this.lastUpdatedCell.y === playerY) {
+            
+            const cellElement = this.grid[this.lastUpdatedCell.y][this.lastUpdatedCell.x];
+            
+            // If a boulder just rolled onto the player cell
+            if (cellElement === ELEMENT_TYPES.BOULDER && 
+                Math.abs(this.lastUpdatedCell.x - playerX) <= 1) {
                 return true;
             }
         }
@@ -294,6 +322,26 @@ export class GamePhysics {
             } else if (playerY > enemy.y) {
                 directions.push({ dx: 0, dy: 1 });
             }
+            
+            // Add diagonal directions for smarter movement
+            if (playerX < enemy.x && playerY < enemy.y) {
+                directions.push({ dx: -1, dy: -1 }); // Up-left
+            } else if (playerX > enemy.x && playerY < enemy.y) {
+                directions.push({ dx: 1, dy: -1 });  // Up-right
+            } else if (playerX < enemy.x && playerY > enemy.y) {
+                directions.push({ dx: -1, dy: 1 });  // Down-left
+            } else if (playerX > enemy.x && playerY > enemy.y) {
+                directions.push({ dx: 1, dy: 1 });   // Down-right
+            }
+            
+            // Add random direction for more unpredictable movement
+            const randomDirs = [
+                { dx: -1, dy: 0 },
+                { dx: 1, dy: 0 },
+                { dx: 0, dy: -1 },
+                { dx: 0, dy: 1 }
+            ];
+            directions.push(randomDirs[Math.floor(Math.random() * randomDirs.length)]);
             
             // Shuffle for some randomness
             let moved = false;
@@ -344,5 +392,49 @@ export class GamePhysics {
      */
     checkEnemyCollision(playerX, playerY, enemies) {
         return enemies.some(enemy => enemy.x === playerX && enemy.y === playerY);
+    }
+    
+    /**
+     * Check if a boulder or diamond would crush an enemy
+     * @param {Array<{x: number, y: number}>} enemies - Array of enemy positions
+     * @returns {Array<number>} - Indices of enemies that are crushed
+     */
+    checkEnemiesCrushed(enemies) {
+        const crushedIndices = [];
+        
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
+            
+            // Check if there's a falling object above
+            if (enemy.y > 0) {
+                const aboveElement = this.grid[enemy.y - 1][enemy.x];
+                if ((aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) &&
+                    this.isFallingAt(enemy.x, enemy.y - 1)) {
+                    crushedIndices.push(i);
+                }
+            }
+        }
+        
+        return crushedIndices;
+    }
+    
+    /**
+     * Get the current last updated cell for animation purposes
+     * @returns {Object|null} - The last updated cell or null
+     */
+    getLastUpdatedCell() {
+        return this.lastUpdatedCell;
+    }
+    
+    /**
+     * Set a specific cell to a given element type
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
+     * @param {number} elementType - The element type to set
+     */
+    setCell(x, y, elementType) {
+        if (isInBounds(x, y, this.width, this.height)) {
+            this.grid[y][x] = elementType;
+        }
     }
 }

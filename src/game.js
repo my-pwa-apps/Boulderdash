@@ -1,6 +1,7 @@
 import { generateAssets } from './assets.js';
 import { generateLevel } from './level-generator.js';
 import { GamePhysics } from './physics.js';
+import { SoundManager } from './sound.js';
 import { 
     TILE_SIZE, 
     GRID_WIDTH, 
@@ -32,6 +33,9 @@ class Game {
         this.startButton = document.getElementById('startButton');
         this.restartButton = document.getElementById('restartButton');
         
+        // Create mute button
+        this.createMuteButton();
+        
         // Game state
         this.isRunning = false;
         this.gameOver = false;
@@ -45,6 +49,7 @@ class Game {
         // Player state
         this.playerPosition = { x: 0, y: 0 };
         this.exitOpen = false;
+        this.playerDirection = 'RIGHT'; // For animation
         
         // Enemy state
         this.enemies = [];
@@ -59,18 +64,66 @@ class Game {
         // Physics step counter
         this.physicsStep = 0;
         
+        // Animation counter
+        this.animationCounter = 0;
+        
+        // Particle effects system
+        this.particles = [];
+        
         // Load assets
         this.sprites = generateAssets();
         
+        // Initialize sound manager
+        this.sound = new SoundManager();
+        
         // Set up input handling
         this.setupEventListeners();
-        
-        // Set up the initial screen
+          // Set up the initial screen
         this.startButton.addEventListener('click', () => this.startGame());
         this.restartButton.addEventListener('click', () => this.restartGame());
         
+        // Help modal functionality
+        this.helpButton = document.getElementById('helpButton');
+        this.helpModal = document.getElementById('helpModal');
+        this.closeHelpButton = document.getElementById('closeHelpButton');
+        
+        this.helpButton.addEventListener('click', () => {
+            this.helpModal.style.display = 'block';
+            if (this.isRunning) {
+                this.pauseGame();
+            }
+        });
+        
+        this.closeHelpButton.addEventListener('click', () => {
+            this.helpModal.style.display = 'none';
+            if (!this.gameOver && !this.isRunning) {
+                this.resumeGame();
+            }
+        });
+        
         // Draw title screen
         this.drawTitleScreen();
+    }
+    
+    /**
+     * Create mute button
+     */
+    createMuteButton() {
+        this.muteButton = document.createElement('button');
+        this.muteButton.id = 'muteButton';
+        this.muteButton.textContent = '🔊';
+        this.muteButton.title = 'Mute/Unmute Sound';
+        this.muteButton.style.position = 'absolute';
+        this.muteButton.style.top = '10px';
+        this.muteButton.style.right = '10px';
+        
+        const controlsDiv = document.querySelector('.controls-info');
+        controlsDiv.appendChild(this.muteButton);
+        
+        this.muteButton.addEventListener('click', () => {
+            const muted = this.sound.toggleMute();
+            this.muteButton.textContent = muted ? '🔇' : '🔊';
+        });
     }
     
     /**
@@ -97,6 +150,13 @@ class Game {
         
         // Handle window resize
         window.addEventListener('resize', () => this.handleResize());
+        
+        // Handle visibility change to pause game when tab is not active
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && this.isRunning) {
+                this.pauseGame();
+            }
+        });
     }
     
     /**
@@ -153,11 +213,53 @@ class Game {
     }
     
     /**
+     * Pause the game
+     */
+    pauseGame() {
+        if (!this.isRunning) return;
+        
+        this.isRunning = false;
+        this.stopTimer();
+        
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        
+        // Display pause message
+        this.showMessage('GAME PAUSED', 'Press any key to continue');
+        
+        // Resume on any key press
+        const resumeHandler = (e) => {
+            window.removeEventListener('keydown', resumeHandler);
+            if (!this.gameOver) {
+                this.resumeGame();
+            }
+        };
+        
+        window.addEventListener('keydown', resumeHandler);
+    }
+    
+    /**
+     * Resume the game after pause
+     */
+    resumeGame() {
+        if (this.isRunning) return;
+        
+        this.isRunning = true;
+        this.startTimer();
+        this.gameLoop();
+    }
+    
+    /**
      * Start the game timer
      */
     startTimer() {
         this.stopTimer();
-        this.timeRemaining = GAME_SETTINGS.INITIAL_TIME + (this.level * 30);
+        
+        if (!this.timeRemaining) {
+            this.timeRemaining = GAME_SETTINGS.INITIAL_TIME + (this.level * 30);
+        }
         
         this.timerInterval = setInterval(() => {
             if (this.isRunning && !this.gameOver) {
@@ -166,6 +268,11 @@ class Game {
                 
                 if (this.timeRemaining <= 0) {
                     this.handlePlayerDeath("Time's up!");
+                }
+                
+                // Flash time when low
+                if (this.timeRemaining <= 15) {
+                    this.timeElement.style.color = this.timeRemaining % 2 === 0 ? '#ff5555' : 'white';
                 }
             }
         }, 1000);
@@ -198,6 +305,7 @@ class Game {
         this.totalDiamonds = levelData.diamonds.length;
         this.diamondsCollected = 0;
         this.exitOpen = false;
+        this.particles = [];
         
         // Create physics engine
         this.physics = new GamePhysics(this.grid);
@@ -211,7 +319,7 @@ class Game {
      */
     updateHUD() {
         this.scoreElement.textContent = `Score: ${this.score}`;
-        this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.totalDiamonds}`;
+        this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
         this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
         this.levelElement.textContent = `Level: ${this.level}`;
     }
@@ -232,6 +340,15 @@ class Game {
             this.enemyMoveCounter = 0;
         }
         
+        // Update animation counter
+        this.animationCounter++;
+        if (this.animationCounter > 60) {
+            this.animationCounter = 0;
+        }
+        
+        // Update particles
+        this.updateParticles();
+        
         // Check for player crushing
         this.checkPlayerStatus();
         
@@ -249,7 +366,13 @@ class Game {
         // Only run physics every few frames for performance
         this.physicsStep++;
         if (this.physicsStep >= 3) {
-            this.physics.update();
+            const physicsChanged = this.physics.update();
+            
+            // Play fall sound if something moved
+            if (physicsChanged && this.physics.fallingObjects.size > 0) {
+                this.sound.play('fall');
+            }
+            
             this.physicsStep = 0;
         }
     }
@@ -280,13 +403,19 @@ class Game {
         
         // Check if player is crushed by falling objects
         if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
+            this.sound.play('crush');
             this.handlePlayerDeath("Crushed by a falling object!");
+            return;
         }
         
         // Check if exit should be open
         if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
             this.exitOpen = true;
+            this.sound.play('exit');
             this.showMessage("Exit is now open!");
+            
+            // Add particles effect around the exit
+            this.createExitParticles();
         }
     }
     
@@ -296,6 +425,9 @@ class Game {
      */
     handlePlayerMove(direction) {
         if (!this.isRunning || this.gameOver) return;
+        
+        // Store direction for player sprite facing
+        this.playerDirection = direction;
         
         const moveResult = this.physics.movePlayer(
             this.playerPosition.x,
@@ -307,11 +439,20 @@ class Game {
             this.playerPosition.x = moveResult.newX;
             this.playerPosition.y = moveResult.newY;
             
+            // Play movement sound
+            this.sound.play('move');
+            
             // Check if diamond collected
             if (moveResult.collected) {
                 this.diamondsCollected++;
                 this.score += GAME_SETTINGS.DIAMOND_VALUE;
                 this.updateHUD();
+                
+                // Play collect sound
+                this.sound.play('collect');
+                
+                // Add particles effect
+                this.createCollectParticles(moveResult.newX, moveResult.newY);
             }
             
             // Check if player reached exit
@@ -321,6 +462,7 @@ class Game {
             
             // Check if player was crushed
             if (moveResult.crushed) {
+                this.sound.play('crush');
                 this.handlePlayerDeath("Caught by an enemy!");
             }
         }
@@ -332,6 +474,9 @@ class Game {
     completeLevel() {
         this.level++;
         
+        // Play level complete sound
+        this.sound.play('complete');
+        
         if (this.level > GAME_SETTINGS.LEVEL_COUNT) {
             this.gameWon();
         } else {
@@ -342,10 +487,14 @@ class Game {
             const timeBonus = this.timeRemaining * 5;
             this.score += timeBonus;
             
+            // Create celebration particles
+            this.createCelebrationParticles();
+            
             setTimeout(() => {
                 this.loadLevel(this.level);
+                this.timeRemaining = GAME_SETTINGS.INITIAL_TIME + (this.level * 30);
                 this.startTimer();
-            }, 2000);
+            }, 3000);
         }
     }
     
@@ -356,7 +505,14 @@ class Game {
     handlePlayerDeath(reason) {
         this.isRunning = false;
         this.gameOver = true;
-        this.showMessage(`Game Over! ${reason}`);
+        
+        // Play game over sound
+        this.sound.play('gameOver');
+        
+        this.showMessage(`Game Over!`, reason);
+        
+        // Create death particles
+        this.createDeathParticles();
         
         // Stop the timer
         this.stopTimer();
@@ -371,7 +527,14 @@ class Game {
     gameWon() {
         this.isRunning = false;
         this.gameOver = true;
-        this.showMessage(`Congratulations! You've won with ${this.score} points!`);
+        
+        // Play level complete sound
+        this.sound.play('complete');
+        
+        this.showMessage(`Congratulations!`, `You've won with ${this.score} points!`);
+        
+        // Create celebration particles
+        this.createCelebrationParticles();
         
         // Stop the timer
         this.stopTimer();
@@ -381,18 +544,141 @@ class Game {
     }
     
     /**
-     * Show a message on screen
-     * @param {string} text - The message to show
+     * Create particles when collecting a diamond
      */
-    showMessage(text) {
+    createCollectParticles(x, y) {
+        const centerX = x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Create sparkles
+        for (let i = 0; i < 10; i++) {
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: (Math.random() - 0.5) * 3,
+                vy: (Math.random() - 0.5) * 3,
+                color: '#00FFFF',
+                size: Math.random() * 3 + 1,
+                life: 30
+            });
+        }
+    }
+    
+    /**
+     * Create particles when exit opens
+     */
+    createExitParticles() {
+        const centerX = this.exitPosition.x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = this.exitPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Create sparkles around exit
+        for (let i = 0; i < 40; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 30 + 10;
+            
+            this.particles.push({
+                x: centerX + Math.cos(angle) * distance,
+                y: centerY + Math.sin(angle) * distance,
+                vx: Math.cos(angle) * 2,
+                vy: Math.sin(angle) * 2,
+                color: '#FF00FF',
+                size: Math.random() * 4 + 2,
+                life: 60
+            });
+        }
+    }
+    
+    /**
+     * Create celebration particles
+     */
+    createCelebrationParticles() {
+        for (let i = 0; i < 100; i++) {
+            this.particles.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height,
+                vx: (Math.random() - 0.5) * 6,
+                vy: (Math.random() - 0.5) * 6,
+                color: `hsl(${Math.random() * 360}, 100%, 60%)`,
+                size: Math.random() * 5 + 2,
+                life: Math.random() * 90 + 30
+            });
+        }
+    }
+    
+    /**
+     * Create death particles
+     */
+    createDeathParticles() {
+        const centerX = this.playerPosition.x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = this.playerPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Create explosion effect
+        for (let i = 0; i < 50; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 4 + 1;
+            
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: `hsl(${Math.random() * 60}, 100%, 50%)`,
+                size: Math.random() * 4 + 2,
+                life: Math.random() * 60 + 20
+            });
+        }
+    }
+    
+    /**
+     * Update all particles
+     */
+    updateParticles() {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+            
+            // Update position
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            
+            // Apply gravity and friction
+            particle.vy += 0.1;
+            particle.vx *= 0.97;
+            particle.vy *= 0.97;
+            
+            // Reduce life
+            particle.life--;
+            
+            // Remove dead particles
+            if (particle.life <= 0) {
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+    
+    /**
+     * Show a message on screen
+     * @param {string} title - The message title
+     * @param {string} subtitle - The message subtitle (optional)
+     */
+    showMessage(title, subtitle) {
         // Draw message overlay
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(0, this.canvas.height / 2 - 40, this.canvas.width, 80);
         
-        this.ctx.font = '24px Arial, sans-serif';
-        this.ctx.fillStyle = 'white';
+        const height = subtitle ? 120 : 80;
+        this.ctx.fillRect(0, this.canvas.height / 2 - height/2, this.canvas.width, height);
+        
+        // Draw title
+        this.ctx.font = 'bold 28px Arial, sans-serif';
+        this.ctx.fillStyle = '#ffcc00';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2 + 10);
+        this.ctx.fillText(title, this.canvas.width / 2, this.canvas.height / 2 - 10);
+        
+        // Draw subtitle if provided
+        if (subtitle) {
+            this.ctx.font = '20px Arial, sans-serif';
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillText(subtitle, this.canvas.width / 2, this.canvas.height / 2 + 30);
+        }
     }
     
     /**
@@ -404,7 +690,7 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Draw title text
-        this.ctx.font = '36px Arial, sans-serif';
+        this.ctx.font = 'bold 36px Arial, sans-serif';
         this.ctx.fillStyle = '#ffcc00';
         this.ctx.textAlign = 'center';
         this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 3);
@@ -416,9 +702,36 @@ class Game {
         
         this.ctx.font = '18px Arial, sans-serif';
         this.ctx.fillText('Arrow keys or WASD to move', this.canvas.width / 2, this.canvas.height / 2 + 40);
+        this.ctx.fillText('Collect the required diamonds to open the exit', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Avoid falling rocks and enemies', this.canvas.width / 2, this.canvas.height / 2 + 100);
         
         // Draw some decorative elements
         this.drawSampleElements();
+        
+        // Create title screen particles
+        if (Math.random() < 0.05 && this.particles.length < 50) {
+            const x = Math.random() * this.canvas.width;
+            const y = this.canvas.height / 3 - 30;
+            
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 1,
+                vy: Math.random() * 1 + 0.5,
+                color: '#ffcc00',
+                size: Math.random() * 3 + 1,
+                life: 100
+            });
+        }
+        
+        // Update and draw particles
+        this.updateParticles();
+        this.drawParticles();
+        
+        // Continue animation if not started
+        if (!this.isRunning) {
+            requestAnimationFrame(() => this.drawTitleScreen());
+        }
     }
     
     /**
@@ -439,6 +752,34 @@ class Game {
                 x, this.canvas.height - TILE_SIZE * 2, 
                 TILE_SIZE, TILE_SIZE);
         }
+        
+        // Draw animated player
+        const playerX = this.canvas.width / 2 - TILE_SIZE / 2;
+        const playerY = this.canvas.height - TILE_SIZE * 4;
+        this.ctx.drawImage(this.sprites[ELEMENT_TYPES.PLAYER], 
+            playerX, playerY, 
+            TILE_SIZE, TILE_SIZE);
+    }
+    
+    /**
+     * Draw all particles
+     */
+    drawParticles() {
+        for (const particle of this.particles) {
+            // Calculate opacity based on remaining life
+            const opacity = particle.life / 60;
+            
+            this.ctx.fillStyle = particle.color;
+            this.ctx.globalAlpha = opacity;
+            
+            // Draw the particle
+            this.ctx.beginPath();
+            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        
+        // Reset global alpha
+        this.ctx.globalAlpha = 1;
     }
     
     /**
@@ -457,6 +798,12 @@ class Game {
                 // Skip empty cells
                 if (element === ELEMENT_TYPES.EMPTY) continue;
                 
+                // Special handling for exit when open
+                if (element === ELEMENT_TYPES.EXIT && this.exitOpen) {
+                    // Animated exit gets drawn separately
+                    continue;
+                }
+                
                 // Draw the element
                 this.ctx.drawImage(
                     this.sprites[element],
@@ -468,12 +815,13 @@ class Game {
             }
         }
         
-        // Open exit indication
+        // Handle exit animation when open
         if (this.exitOpen) {
-            // Add pulsing effect to the exit
-            const pulseScale = 1 + 0.1 * Math.sin(Date.now() / 200);
             const exitX = this.exitPosition.x * TILE_SIZE;
             const exitY = this.exitPosition.y * TILE_SIZE;
+            
+            // Add pulsing effect to the exit
+            const pulseScale = 1 + 0.1 * Math.sin(Date.now() / 200);
             
             this.ctx.save();
             this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
@@ -487,6 +835,9 @@ class Game {
             );
             this.ctx.restore();
         }
+        
+        // Draw particles
+        this.drawParticles();
     }
 }
 

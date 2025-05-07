@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Boulder Dash</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💎</text></svg>">
 </head>
 <body>
     <div class="game-container">
@@ -13,7 +14,7 @@
             <div class="game-info">
                 <div id="score">Score: 0</div>
                 <div id="diamonds">Diamonds: 0/0</div>
-                <div id="time">Time: 0</div>
+                <div id="time">Time: 00:00</div>
                 <div id="level">Level: 1</div>
             </div>
         </div>
@@ -23,7 +24,22 @@
                 <p>Use arrow keys or WASD to move</p>
                 <button id="startButton">Start Game</button>
                 <button id="restartButton" style="display: none;">Restart</button>
+                <button id="helpButton">How to Play</button>
             </div>
+        </div>
+        
+        <!-- Help modal (hidden by default) -->
+        <div id="helpModal" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0,0,0,0.9); border: 2px solid #ffcc00; border-radius: 10px; padding: 20px; z-index: 100; width: 80%; max-width: 500px;">
+            <h2 style="color: #ffcc00; text-align: center; margin-bottom: 15px;">How to Play</h2>
+            <ul style="list-style-type: none; padding: 0 20px;">
+                <li style="margin-bottom: 10px;">🎮 Use <strong>Arrow keys</strong> or <strong>WASD</strong> to move</li>
+                <li style="margin-bottom: 10px;">💎 Collect enough diamonds to open the exit</li>
+                <li style="margin-bottom: 10px;">🪨 Push boulders to clear paths and crush enemies</li>
+                <li style="margin-bottom: 10px;">⚠️ Avoid falling rocks or being crushed</li>
+                <li style="margin-bottom: 10px;">👹 Stay away from enemies</li>
+                <li style="margin-bottom: 10px;">🚪 Find the exit after collecting enough diamonds</li>
+            </ul>
+            <button id="closeHelpButton" style="display: block; margin: 10px auto;">Close</button>
         </div>
     </div>
     <script type="module" src="../src/game.js"></script>
