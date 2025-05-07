@@ -155,28 +155,28 @@ export class GamePhysics {
             console.error(`Invalid player position: ${playerX}, ${playerY}`);
             return { success: false };
         }
-        
+
         const dir = DIRECTIONS[direction];
         if (!dir) {
             console.error(`Invalid direction: ${direction}`);
             return { success: false };
         }
-        
+
         const newX = playerX + dir.x;
         const newY = playerY + dir.y;
-        
+
         // Check if the move is valid
         if (!isInBounds(newX, newY, this.width, this.height)) {
             console.log(`Cannot move: out of bounds`);
             return { success: false };
         }
-        
+
         // Force player position in grid to avoid desync
         this.grid[playerY][playerX] = ELEMENT_TYPES.PLAYER;
-        
+
         // Check target cell
         const targetElement = this.grid[newY][newX];
-        
+
         // Result object
         const result = {
             success: false,
@@ -186,7 +186,7 @@ export class GamePhysics {
             crushed: false,
             exit: false
         };
-        
+
         switch (targetElement) {
             case ELEMENT_TYPES.EMPTY:
             case ELEMENT_TYPES.DIRT:
@@ -197,7 +197,7 @@ export class GamePhysics {
                 result.newX = newX;
                 result.newY = newY;
                 break;
-                
+
             case ELEMENT_TYPES.DIAMOND:
                 // Collect diamond
                 this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
@@ -207,7 +207,7 @@ export class GamePhysics {
                 result.newY = newY;
                 result.collected = true;
                 break;
-                
+
             case ELEMENT_TYPES.BOULDER:
                 // Try to push boulder
                 if (this.tryPushBoulder(newX, newY, dir.x, dir.y)) {
@@ -218,7 +218,7 @@ export class GamePhysics {
                     result.newY = newY;
                 }
                 break;
-                
+
             case ELEMENT_TYPES.EXIT:
                 // Enter exit
                 this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
@@ -228,13 +228,13 @@ export class GamePhysics {
                 result.newY = newY;
                 result.exit = true;
                 break;
-                
+
             case ELEMENT_TYPES.ENEMY:
                 // Player dies on contact with enemy
                 result.crushed = true;
                 break;
         }
-        
+
         return result;
     }
     

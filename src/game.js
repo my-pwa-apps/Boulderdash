@@ -435,53 +435,53 @@ class Game {
      */
     handlePlayerMove(direction) {
         if (!this.isRunning || this.gameOver) return;
-        
+
         console.log(`Attempting to move player in direction: ${direction}`);
         console.log(`Current position: ${this.playerPosition.x}, ${this.playerPosition.y}`);
-        
+
         // Store direction for player sprite facing
         this.playerDirection = direction;
-        
+
         // Validate player position before movement
         if (this.playerPosition.x === undefined || this.playerPosition.y === undefined) {
             console.error('Invalid player position');
             this.playerPosition = { x: 2, y: 2 }; // Set fallback position
         }
-        
+
         const moveResult = this.physics.movePlayer(
             this.playerPosition.x,
             this.playerPosition.y,
             direction
         );
-        
+
         console.log('Move result:', moveResult);
-        
+
         if (moveResult.success) {
             this.playerPosition.x = moveResult.newX;
             this.playerPosition.y = moveResult.newY;
             console.log(`Player moved to: ${this.playerPosition.x}, ${this.playerPosition.y}`);
-            
+
             // Play movement sound
             this.sound.play('move');
-            
+
             // Check if diamond collected
             if (moveResult.collected) {
                 this.diamondsCollected++;
                 this.score += GAME_SETTINGS.DIAMOND_VALUE;
                 this.updateHUD();
-                
+
                 // Play collect sound
                 this.sound.play('collect');
-                
+
                 // Add particles effect
                 this.createCollectParticles(moveResult.newX, moveResult.newY);
             }
-            
+
             // Check if player reached exit
             if (moveResult.exit && this.exitOpen) {
                 this.completeLevel();
             }
-            
+
             // Check if player was crushed
             if (moveResult.crushed) {
                 this.sound.play('crush');
