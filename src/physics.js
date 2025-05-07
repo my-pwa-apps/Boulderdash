@@ -140,8 +140,7 @@ export class GamePhysics {
     isFallingAt(x, y) {
         return this.fallingObjects.has(`${x},${y}`);
     }
-    
-    /**
+      /**
      * Handle player movement with pushing mechanics
      * @param {number} playerX - Player's current x position
      * @param {number} playerY - Player's current y position
@@ -158,6 +157,13 @@ export class GamePhysics {
         // Check if the move is valid
         if (!isInBounds(newX, newY, this.width, this.height)) {
             return { success: false };
+        }
+        
+        // First, verify the player is actually at the expected position in the grid
+        // This ensures the grid and player position stay synchronized
+        if (this.grid[playerY][playerX] !== ELEMENT_TYPES.PLAYER) {
+            // If player is not at the expected position, update it
+            this.grid[playerY][playerX] = ELEMENT_TYPES.PLAYER;
         }
         
         // Check target cell

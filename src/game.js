@@ -287,8 +287,7 @@ class Game {
             this.timerInterval = null;
         }
     }
-    
-    /**
+      /**
      * Load a level
      * @param {number} levelNumber - The level number to load
      */
@@ -309,6 +308,14 @@ class Game {
         
         // Create physics engine
         this.physics = new GamePhysics(this.grid);
+        
+        // Make sure player position is properly set in the grid
+        const { x, y } = this.playerPosition;
+        if (this.grid[y][x] !== ELEMENT_TYPES.PLAYER) {
+            this.grid[y][x] = ELEMENT_TYPES.PLAYER;
+            // Also update the physics grid to keep them synchronized
+            this.physics.setCell(x, y, ELEMENT_TYPES.PLAYER);
+        }
         
         // Update HUD
         this.updateHUD();
