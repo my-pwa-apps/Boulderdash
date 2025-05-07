@@ -103,6 +103,41 @@ class Game {
         
         // Draw title screen
         this.drawTitleScreen();
+        
+        // Add visual effect properties
+        this.screenShake = 0;
+        this.screenShakeIntensity = 0;
+        this.backgroundPattern = this.createBackgroundPattern();
+        this.playerAnimationFrame = 0;
+        this.playerAnimationCounter = 0;
+        this.gameTime = 0; // For various timing effects
+    }
+    
+    /**
+     * Create a background pattern for the game
+     * @returns {CanvasPattern} - The created pattern
+     */
+    createBackgroundPattern() {
+        // Create a small canvas for the pattern
+        const patternCanvas = document.createElement('canvas');
+        patternCanvas.width = 20;
+        patternCanvas.height = 20;
+        const patternCtx = patternCanvas.getContext('2d');
+        
+        // Draw a subtle grid pattern
+        patternCtx.fillStyle = '#0a0a0a';
+        patternCtx.fillRect(0, 0, 20, 20);
+        patternCtx.strokeStyle = '#1a1a1a';
+        patternCtx.lineWidth = 1;
+        patternCtx.beginPath();
+        patternCtx.moveTo(0, 0);
+        patternCtx.lineTo(20, 0);
+        patternCtx.moveTo(0, 0);
+        patternCtx.lineTo(0, 20);
+        patternCtx.stroke();
+        
+        // Create and return the pattern
+        return this.ctx.createPattern(patternCanvas, 'repeat');
     }
     
     /**
@@ -340,6 +375,9 @@ class Game {
     gameLoop() {
         if (!this.isRunning) return;
         
+        // Update game time
+        this.gameTime++;
+        
         // Update physics
         this.updatePhysics();
         
@@ -354,6 +392,170 @@ class Game {
         this.animationCounter++;
         if (this.animationCounter > 60) {
             this.animationCounter = 0;
+        }
+        
+        // Update player animation
+        this.playerAnimationCounter++;
+        if (this.playerAnimationCounter > 10) {
+            this.playerAnimationCounter = 0;
+            this.playerAnimationFrame = (this.playerAnimationFrame + 1) % 4;
+        }
+        
+        // Update screen shake effect
+        if (this.screenShake > 0) {
+            this.screenShake--;
+        }
+        
+        // Update particles
+        this.updateParticles();
+        
+        // Check for player crushing
+        this.checkPlayerStatus();
+        
+        // Render the game
+        this.render();
+        
+        // Request next frame
+        this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
+    }
+    
+    /**
+     * Create a crash animation at the specified position
+     * @param {number} x - The x coordinate of the crash
+     * @param {number} y - The y coordinate of the crash
+     */
+    createCrashAnimation(x, y) {
+        const centerX = x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Add screen shake
+        this.screenShake = 20;
+        this.screenShakeIntensity = 5;
+
+        // Create explosion-like particles
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+            const size = Math.random() * 5 + 3;
+            const life = Math.random() * 40 + 30;
+            
+            // Debris particles
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: i % 3 === 0 ? '#ff8800' : (i % 3 === 1 ? '#ffcc00' : '#ff3300'),
+                size: size,
+                life: life,
+                gravity: 0.2,
+                type: 'debris'
+            });
+        }
+        
+        // Add dust cloud
+        for (let i = 0; i < 15; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 20;
+            const speed = Math.random() * 1.5;
+            
+            this.particles.push({
+                x: centerX + Math.cos(angle) * distance,
+                y: centerY + Math.sin(angle) * distance,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: '#aaaaaa',
+                size: Math.random() * 8 + 4,
+                life: Math.random() * 60 + 30,
+                gravity: 0.05,
+                type: 'dust',
+                opacity: 0.7
+            });
+        }
+    }
+    
+    /**
+     * Load a level
+     * @param {number} levelNumber - The level number to load
+     */
+    loadLevel(levelNumber) {
+        // Generate the level
+        const levelData = generateLevel(levelNumber);
+        
+        // Set up game state
+        this.grid = levelData.grid;
+        this.playerPosition = { ...levelData.playerPosition }; // Make a copy to avoid reference issues
+        this.exitPosition = levelData.exitPosition;
+        this.enemies = levelData.enemies;
+        this.requiredDiamonds = levelData.requiredDiamonds;
+        this.totalDiamonds = levelData.diamonds.length;
+        this.diamondsCollected = 0;
+        this.exitOpen = false;
+        this.particles = [];
+        
+        // Create physics engine
+        this.physics = new GamePhysics(this.grid);
+        
+        // Explicitly ensure player position is set in both grids
+        const { x, y } = this.playerPosition;
+        
+        // Set player in game grid
+        this.grid[y][x] = ELEMENT_TYPES.PLAYER;
+        
+        // Set player in physics grid
+        this.physics.setCell(x, y, ELEMENT_TYPES.PLAYER);
+        
+        console.log(`Player position set at: ${x}, ${y}`); // Debug log
+        
+        // Update HUD
+        this.updateHUD();
+    }
+    
+    /**
+     * Update the heads-up display
+     */
+    updateHUD() {
+        this.scoreElement.textContent = `Score: ${this.score}`;
+        this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
+        this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
+        this.levelElement.textContent = `Level: ${this.level}`;
+    }
+    
+    /**
+     * Main game loop
+     */
+    gameLoop() {
+        if (!this.isRunning) return;
+        
+        // Update game time
+        this.gameTime++;
+        
+        // Update physics
+        this.updatePhysics();
+        
+        // Update enemies periodically
+        this.enemyMoveCounter++;
+        if (this.enemyMoveCounter >= 20) {
+            this.updateEnemies();
+            this.enemyMoveCounter = 0;
+        }
+        
+        // Update animation counter
+        this.animationCounter++;
+        if (this.animationCounter > 60) {
+            this.animationCounter = 0;
+        }
+        
+        // Update player animation
+        this.playerAnimationCounter++;
+        if (this.playerAnimationCounter > 10) {
+            this.playerAnimationCounter = 0;
+            this.playerAnimationFrame = (this.playerAnimationFrame + 1) % 4;
+        }
+        
+        // Update screen shake effect
+        if (this.screenShake > 0) {
+            this.screenShake--;
         }
         
         // Update particles
@@ -683,10 +885,20 @@ class Game {
             particle.x += particle.vx;
             particle.y += particle.vy;
             
-            // Apply gravity and friction
-            particle.vy += 0.1;
-            particle.vx *= 0.97;
-            particle.vy *= 0.97;
+            // Apply gravity and friction based on particle type
+            const gravity = particle.gravity || 0.1;
+            particle.vy += gravity;
+            
+            // Different behavior for different particle types
+            if (particle.type === 'debris') {
+                // Debris bounces and loses energy
+                particle.vx *= 0.95;
+                particle.vy *= 0.95;
+            } else {
+                // Default particle behavior
+                particle.vx *= 0.97;
+                particle.vy *= 0.97;
+            }
             
             // Reduce life
             particle.life--;
@@ -699,130 +911,68 @@ class Game {
     }
     
     /**
-     * Show a message on screen
-     * @param {string} title - The message title
-     * @param {string} subtitle - The message subtitle (optional)
-     */
-    showMessage(title, subtitle) {
-        // Draw message overlay
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        
-        const height = subtitle ? 120 : 80;
-        this.ctx.fillRect(0, this.canvas.height / 2 - height/2, this.canvas.width, height);
-        
-        // Draw title
-        this.ctx.font = 'bold 28px Arial, sans-serif';
-        this.ctx.fillStyle = '#ffcc00';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(title, this.canvas.width / 2, this.canvas.height / 2 - 10);
-        
-        // Draw subtitle if provided
-        if (subtitle) {
-            this.ctx.font = '20px Arial, sans-serif';
-            this.ctx.fillStyle = 'white';
-            this.ctx.fillText(subtitle, this.canvas.width / 2, this.canvas.height / 2 + 30);
-        }
-    }
-    
-    /**
-     * Draw the title screen
-     */
-    drawTitleScreen() {
-        // Clear the canvas
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw title text
-        this.ctx.font = 'bold 36px Arial, sans-serif';
-        this.ctx.fillStyle = '#ffcc00';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 3);
-        
-        // Draw instructions
-        this.ctx.font = '22px Arial, sans-serif';
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Collect diamonds and reach the exit!', this.canvas.width / 2, this.canvas.height / 2);
-        
-        this.ctx.font = '18px Arial, sans-serif';
-        this.ctx.fillText('Arrow keys or WASD to move', this.canvas.width / 2, this.canvas.height / 2 + 40);
-        this.ctx.fillText('Collect the required diamonds to open the exit', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Avoid falling rocks and enemies', this.canvas.width / 2, this.canvas.height / 2 + 100);
-        
-        // Draw some decorative elements
-        this.drawSampleElements();
-        
-        // Create title screen particles
-        if (Math.random() < 0.05 && this.particles.length < 50) {
-            const x = Math.random() * this.canvas.width;
-            const y = this.canvas.height / 3 - 30;
-            
-            this.particles.push({
-                x: x,
-                y: y,
-                vx: (Math.random() - 0.5) * 1,
-                vy: Math.random() * 1 + 0.5,
-                color: '#ffcc00',
-                size: Math.random() * 3 + 1,
-                life: 100
-            });
-        }
-        
-        // Update and draw particles
-        this.updateParticles();
-        this.drawParticles();
-        
-        // Continue animation if not started
-        if (!this.isRunning) {
-            requestAnimationFrame(() => this.drawTitleScreen());
-        }
-    }
-    
-    /**
-     * Draw sample game elements on the title screen
-     */
-    drawSampleElements() {
-        // Draw some sample diamonds and boulders around the edges
-        for (let i = 0; i < 8; i++) {
-            const x = (i % 4) * (this.canvas.width / 4) + TILE_SIZE;
-            
-            // Diamonds at the top
-            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.DIAMOND], 
-                x, TILE_SIZE, 
-                TILE_SIZE, TILE_SIZE);
-            
-            // Boulders at the bottom
-            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.BOULDER], 
-                x, this.canvas.height - TILE_SIZE * 2, 
-                TILE_SIZE, TILE_SIZE);
-        }
-        
-        // Draw animated player
-        const playerX = this.canvas.width / 2 - TILE_SIZE / 2;
-        const playerY = this.canvas.height - TILE_SIZE * 4;
-        this.ctx.drawImage(this.sprites[ELEMENT_TYPES.PLAYER], 
-            playerX, playerY, 
-            TILE_SIZE, TILE_SIZE);
-    }
-    
-    /**
      * Draw all particles
      */
     drawParticles() {
         for (const particle of this.particles) {
             // Calculate opacity based on remaining life
-            const opacity = particle.life / 60;
+            const baseOpacity = particle.opacity !== undefined ? particle.opacity : 1;
+            const opacity = baseOpacity * (particle.life / (particle.type === 'dust' ? 90 : 60));
             
             this.ctx.fillStyle = particle.color;
             this.ctx.globalAlpha = opacity;
             
-            // Draw the particle
-            this.ctx.beginPath();
-            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-            this.ctx.fill();
+            // Draw the particle based on its type
+            if (particle.type === 'dust') {
+                // Dust is more cloud-like
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            } else if (particle.type === 'debris') {
+                // Debris can be small squares or triangles
+                if (Math.random() > 0.5) {
+                    // Square
+                    this.ctx.fillRect(
+                        particle.x - particle.size/2,
+                        particle.y - particle.size/2,
+                        particle.size,
+                        particle.size
+                    );
+                } else {
+                    // Triangle
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(particle.x, particle.y - particle.size/2);
+                    this.ctx.lineTo(particle.x + particle.size/2, particle.y + particle.size/2);
+                    this.ctx.lineTo(particle.x - particle.size/2, particle.y + particle.size/2);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                }
+            } else {
+                // Default particle shape is circle
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
         }
         
         // Reset global alpha
         this.ctx.globalAlpha = 1;
+    }
+    
+    /**
+     * Apply screen shake effect to the context
+     */
+    applyScreenShake() {
+        if (this.screenShake <= 0) return;
+        
+        // Calculate shake offset
+        const intensity = this.screenShakeIntensity * (this.screenShake / 20);
+        const shakeX = (Math.random() * 2 - 1) * intensity;
+        const shakeY = (Math.random() * 2 - 1) * intensity;
+        
+        // Apply the shake
+        this.ctx.save();
+        this.ctx.translate(shakeX, shakeY);
     }
     
     /**
@@ -832,16 +982,92 @@ class Game {
         // Clear the canvas
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Render only updated cells
+        
+        // Draw background pattern
+        this.ctx.fillStyle = this.backgroundPattern;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply screen shake
+        this.applyScreenShake();
+        
+        // Draw a subtle ambient lighting effect
+        const ambientCycle = Math.sin(this.gameTime / 60) * 0.1 + 0.9;
+        this.ctx.fillStyle = `rgba(20, 20, 40, ${0.1 * ambientCycle})`;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Render grid with fading edges
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
                 const element = this.grid[y][x];
-
+                
                 // Skip empty cells
                 if (element === ELEMENT_TYPES.EMPTY) continue;
-
-                // Draw the element
+                
+                // Special handling for exit when open
+                if (element === ELEMENT_TYPES.EXIT && this.exitOpen) {
+                    // Animated exit gets drawn separately
+                    continue;
+                }
+                
+                // Special handling for player to animate based on direction
+                if (element === ELEMENT_TYPES.PLAYER) {
+                    // Get animation frame 
+                    const frameOffset = this.playerAnimationFrame * 0.25;
+                    const directionOffset = {
+                        'UP': 0.25,
+                        'RIGHT': 0.5,
+                        'DOWN': 0.75,
+                        'LEFT': 0
+                    }[this.playerDirection] || 0;
+                    
+                    // Draw player with animation
+                    this.ctx.save();
+                    this.ctx.translate(
+                        x * TILE_SIZE + TILE_SIZE/2,
+                        y * TILE_SIZE + TILE_SIZE/2
+                    );
+                    
+                    // Add slight bobbing motion
+                    const bob = Math.sin(this.gameTime / 10) * 2;
+                    this.ctx.translate(0, bob);
+                    
+                    this.ctx.rotate(directionOffset * Math.PI * 2);
+                    this.ctx.drawImage(
+                        this.sprites[element],
+                        -TILE_SIZE/2,
+                        -TILE_SIZE/2,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    );
+                    this.ctx.restore();
+                    continue;
+                }
+                
+                // Special handling for diamonds to add sparkle
+                if (element === ELEMENT_TYPES.DIAMOND) {
+                    const sparkleIntensity = (Math.sin(this.gameTime / 10 + x * 0.5 + y * 0.7) + 1) / 2;
+                    
+                    // Draw the diamond
+                    this.ctx.drawImage(
+                        this.sprites[element],
+                        x * TILE_SIZE,
+                        y * TILE_SIZE,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    );
+                    
+                    // Add sparkle overlay
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${sparkleIntensity * 0.3})`;
+                    this.ctx.fillRect(
+                        x * TILE_SIZE + TILE_SIZE/4,
+                        y * TILE_SIZE + TILE_SIZE/4,
+                        TILE_SIZE/2,
+                        TILE_SIZE/2
+                    );
+                    continue;
+                }
+                
+                // Regular element rendering
                 this.ctx.drawImage(
                     this.sprites[element],
                     x * TILE_SIZE,
@@ -849,20 +1075,58 @@ class Game {
                     TILE_SIZE,
                     TILE_SIZE
                 );
+                
+                // Add dynamic lighting to boulders
+                if (element === ELEMENT_TYPES.BOULDER) {
+                    const lightAngle = this.gameTime / 100;
+                    const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+                    const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+                    
+                    const gradient = this.ctx.createRadialGradient(
+                        x * TILE_SIZE + gradX,
+                        y * TILE_SIZE + gradY,
+                        TILE_SIZE/8,
+                        x * TILE_SIZE + TILE_SIZE/2,
+                        y * TILE_SIZE + TILE_SIZE/2,
+                        TILE_SIZE
+                    );
+                    
+                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
             }
         }
-
+        
         // Handle exit animation when open
         if (this.exitOpen) {
             const exitX = this.exitPosition.x * TILE_SIZE;
             const exitY = this.exitPosition.y * TILE_SIZE;
-
+            
             // Add pulsing effect to the exit
-            const pulseScale = 1 + 0.1 * Math.sin(Date.now() / 200);
-
+            const pulseScale = 1 + 0.15 * Math.sin(Date.now() / 150);
+            const rotationAngle = Math.sin(Date.now() / 1000) * 0.1;
+            
             this.ctx.save();
             this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
             this.ctx.scale(pulseScale, pulseScale);
+            this.ctx.rotate(rotationAngle);
+            
+            // Add glowing effect
+            const glowSize = 1.5 + 0.3 * Math.sin(Date.now() / 300);
+            this.ctx.globalAlpha = 0.4;
+            this.ctx.drawImage(
+                this.sprites[ELEMENT_TYPES.EXIT],
+                -TILE_SIZE / 2 * glowSize,
+                -TILE_SIZE / 2 * glowSize,
+                TILE_SIZE * glowSize,
+                TILE_SIZE * glowSize
+            );
+            
+            // Draw the actual exit
+            this.ctx.globalAlpha = 1.0;
             this.ctx.drawImage(
                 this.sprites[ELEMENT_TYPES.EXIT],
                 -TILE_SIZE / 2,
@@ -872,9 +1136,14 @@ class Game {
             );
             this.ctx.restore();
         }
-
+        
         // Draw particles
         this.drawParticles();
+        
+        // Reset any transformations from screen shake
+        if (this.screenShake > 0) {
+            this.ctx.restore();
+        }
     }
 }
 
