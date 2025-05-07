@@ -577,6 +577,76 @@ class Game {
     }
     
     /**
+     * Update all particles
+     */
+    updateParticles() {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            const gravity = particle.gravity || 0.1;
+            particle.vy += gravity;
+            if (particle.type === 'debris') {
+                particle.vx *= 0.95;
+                particle.vy *= 0.95;
+            } else {
+                particle.vx *= 0.97;
+                particle.vy *= 0.97;
+            }
+            particle.life--;
+            if (particle.life <= 0) {
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+    
+    /**
+     * Draw the title screen
+     */
+    drawTitleScreen() {
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = this.backgroundPattern;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = 'bold 36px Arial, sans-serif';
+        this.ctx.fillStyle = '#ffcc00';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 3);
+        this.ctx.font = '22px Arial, sans-serif';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Collect diamonds and reach the exit!', this.canvas.width / 2, this.canvas.height / 2);
+        this.ctx.font = '18px Arial, sans-serif';
+        this.ctx.fillText('Arrow keys or WASD to move', this.canvas.width / 2, this.canvas.height / 2 + 40);
+        this.ctx.fillText('Collect the required diamonds to open the exit', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Avoid falling rocks and enemies', this.canvas.width / 2, this.canvas.height / 2 + 100);
+        if (typeof this.drawSampleElements === 'function') {
+            this.drawSampleElements();
+        }
+        if (Math.random() < 0.05 && this.particles.length < 50) {
+            const x = Math.random() * this.canvas.width;
+            const y = this.canvas.height / 3 - 30;
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 1,
+                vy: Math.random() * 1 + 0.5,
+                color: '#ffcc00',
+                size: Math.random() * 3 + 1,
+                life: 100
+            });
+        }
+        if (typeof this.updateParticles === 'function') {
+            this.updateParticles();
+        }
+        if (typeof this.drawParticles === 'function') {
+            this.drawParticles();
+        }
+        if (!this.isRunning) {
+            requestAnimationFrame(() => this.drawTitleScreen());
+        }
+    }
+    
+    /**
      * Update game physics
      */
     updatePhysics() {
