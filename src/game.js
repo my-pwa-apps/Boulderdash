@@ -1160,6 +1160,116 @@ class Game {
             this.ctx.restore();
         }
     }
+    
+    /**
+     * Draw the title screen
+     */
+    drawTitleScreen() {
+        // Clear the canvas
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw background pattern
+        this.ctx.fillStyle = this.backgroundPattern;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw title text
+        this.ctx.font = 'bold 36px Arial, sans-serif';
+        this.ctx.fillStyle = '#ffcc00';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 3);
+        
+        // Draw instructions
+        this.ctx.font = '22px Arial, sans-serif';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Collect diamonds and reach the exit!', this.canvas.width / 2, this.canvas.height / 2);
+        
+        this.ctx.font = '18px Arial, sans-serif';
+        this.ctx.fillText('Arrow keys or WASD to move', this.canvas.width / 2, this.canvas.height / 2 + 40);
+        this.ctx.fillText('Collect the required diamonds to open the exit', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Avoid falling rocks and enemies', this.canvas.width / 2, this.canvas.height / 2 + 100);
+        
+        // Draw some decorative elements
+        this.drawSampleElements();
+        
+        // Create title screen particles
+        if (Math.random() < 0.05 && this.particles.length < 50) {
+            const x = Math.random() * this.canvas.width;
+            const y = this.canvas.height / 3 - 30;
+            
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 1,
+                vy: Math.random() * 1 + 0.5,
+                color: '#ffcc00',
+                size: Math.random() * 3 + 1,
+                life: 100
+            });
+        }
+        
+        // Update and draw particles
+        this.updateParticles();
+        this.drawParticles();
+        
+        // Continue animation if not started
+        if (!this.isRunning) {
+            requestAnimationFrame(() => this.drawTitleScreen());
+        }
+    }
+    
+    /**
+     * Draw sample game elements on the title screen
+     */
+    drawSampleElements() {
+        // Draw some sample diamonds and boulders around the edges
+        for (let i = 0; i < 8; i++) {
+            const x = (i % 4) * (this.canvas.width / 4) + TILE_SIZE;
+            
+            // Diamonds at the top
+            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.DIAMOND], 
+                x, TILE_SIZE, 
+                TILE_SIZE, TILE_SIZE);
+            
+            // Boulders at the bottom
+            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.BOULDER], 
+                x, this.canvas.height - TILE_SIZE * 2, 
+                TILE_SIZE, TILE_SIZE);
+        }
+        
+        // Draw animated player
+        const playerX = this.canvas.width / 2 - TILE_SIZE / 2;
+        const playerY = this.canvas.height - TILE_SIZE * 4;
+        this.ctx.drawImage(this.sprites[ELEMENT_TYPES.PLAYER], 
+            playerX, playerY, 
+            TILE_SIZE, TILE_SIZE);
+    }
+    
+    /**
+     * Show a message on screen
+     * @param {string} title - The message title
+     * @param {string} subtitle - The message subtitle (optional)
+     */
+    showMessage(title, subtitle) {
+        // Draw message overlay
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        
+        const height = subtitle ? 120 : 80;
+        this.ctx.fillRect(0, this.canvas.height / 2 - height/2, this.canvas.width, height);
+        
+        // Draw title
+        this.ctx.font = 'bold 28px Arial, sans-serif';
+        this.ctx.fillStyle = '#ffcc00';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(title, this.canvas.width / 2, this.canvas.height / 2 - 10);
+        
+        // Draw subtitle if provided
+        if (subtitle) {
+            this.ctx.font = '20px Arial, sans-serif';
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillText(subtitle, this.canvas.width / 2, this.canvas.height / 2 + 30);
+        }
+    }
 }
 
 // Start the game when the DOM is loaded
