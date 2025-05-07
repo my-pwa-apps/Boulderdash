@@ -148,23 +148,31 @@ export class GamePhysics {
      * @returns {Object} - Result of the move {success, newX, newY, collected, crushed, exit}
      */
     movePlayer(playerX, playerY, direction) {
+        console.log(`Moving player from ${playerX}, ${playerY} in direction ${direction}`);
+        
+        // Validate input coordinates
+        if (!isInBounds(playerX, playerY, this.width, this.height)) {
+            console.error(`Invalid player position: ${playerX}, ${playerY}`);
+            return { success: false };
+        }
+        
         const dir = DIRECTIONS[direction];
-        if (!dir) return { success: false };
+        if (!dir) {
+            console.error(`Invalid direction: ${direction}`);
+            return { success: false };
+        }
         
         const newX = playerX + dir.x;
         const newY = playerY + dir.y;
         
         // Check if the move is valid
         if (!isInBounds(newX, newY, this.width, this.height)) {
+            console.log(`Cannot move: out of bounds`);
             return { success: false };
         }
         
-        // First, verify the player is actually at the expected position in the grid
-        // This ensures the grid and player position stay synchronized
-        if (this.grid[playerY][playerX] !== ELEMENT_TYPES.PLAYER) {
-            // If player is not at the expected position, update it
-            this.grid[playerY][playerX] = ELEMENT_TYPES.PLAYER;
-        }
+        // Force player position in grid to avoid desync
+        this.grid[playerY][playerX] = ELEMENT_TYPES.PLAYER;
         
         // Check target cell
         const targetElement = this.grid[newY][newX];

@@ -67,7 +67,8 @@ export function manhattanDistance(x1, y1, x2, y2) {
  * @returns {Array<Array>} - A deep copy of the grid
  */
 export function cloneGrid(grid) {
-    return grid.map(row => [...row]);
+    if (!grid || !Array.isArray(grid)) return [];
+    return grid.map(row => Array.isArray(row) ? [...row] : []);
 }
 
 /**

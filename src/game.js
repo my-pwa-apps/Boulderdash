@@ -297,7 +297,7 @@ class Game {
         
         // Set up game state
         this.grid = levelData.grid;
-        this.playerPosition = levelData.playerPosition;
+        this.playerPosition = { ...levelData.playerPosition }; // Make a copy to avoid reference issues
         this.exitPosition = levelData.exitPosition;
         this.enemies = levelData.enemies;
         this.requiredDiamonds = levelData.requiredDiamonds;
@@ -309,13 +309,16 @@ class Game {
         // Create physics engine
         this.physics = new GamePhysics(this.grid);
         
-        // Make sure player position is properly set in the grid
+        // Explicitly ensure player position is set in both grids
         const { x, y } = this.playerPosition;
-        if (this.grid[y][x] !== ELEMENT_TYPES.PLAYER) {
-            this.grid[y][x] = ELEMENT_TYPES.PLAYER;
-            // Also update the physics grid to keep them synchronized
-            this.physics.setCell(x, y, ELEMENT_TYPES.PLAYER);
-        }
+        
+        // Set player in game grid
+        this.grid[y][x] = ELEMENT_TYPES.PLAYER;
+        
+        // Set player in physics grid
+        this.physics.setCell(x, y, ELEMENT_TYPES.PLAYER);
+        
+        console.log(`Player position set at: ${x}, ${y}`); // Debug log
         
         // Update HUD
         this.updateHUD();
@@ -433,8 +436,17 @@ class Game {
     handlePlayerMove(direction) {
         if (!this.isRunning || this.gameOver) return;
         
+        console.log(`Attempting to move player in direction: ${direction}`);
+        console.log(`Current position: ${this.playerPosition.x}, ${this.playerPosition.y}`);
+        
         // Store direction for player sprite facing
         this.playerDirection = direction;
+        
+        // Validate player position before movement
+        if (this.playerPosition.x === undefined || this.playerPosition.y === undefined) {
+            console.error('Invalid player position');
+            this.playerPosition = { x: 2, y: 2 }; // Set fallback position
+        }
         
         const moveResult = this.physics.movePlayer(
             this.playerPosition.x,
@@ -442,9 +454,12 @@ class Game {
             direction
         );
         
+        console.log('Move result:', moveResult);
+        
         if (moveResult.success) {
             this.playerPosition.x = moveResult.newX;
             this.playerPosition.y = moveResult.newY;
+            console.log(`Player moved to: ${this.playerPosition.x}, ${this.playerPosition.y}`);
             
             // Play movement sound
             this.sound.play('move');
