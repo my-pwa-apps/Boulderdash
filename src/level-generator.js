@@ -111,7 +111,7 @@ function addWalls(grid) {
 }
 
 /**
- * Fill empty areas with dirt
+ * Fill the empty grid with dirt
  * @param {Array<Array<number>>} grid - The game grid
  */
 function addDirt(grid) {
@@ -120,12 +120,9 @@ function addDirt(grid) {
     
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            // Fill non-wall cells with dirt
+            // If cell is empty, fill with dirt
             if (grid[y][x] === ELEMENT_TYPES.EMPTY) {
-                // Add dirt with some empty patches
-                if (Math.random() > 0.1) {
-                    grid[y][x] = ELEMENT_TYPES.DIRT;
-                }
+                grid[y][x] = ELEMENT_TYPES.DIRT;
             }
         }
     }
@@ -137,44 +134,41 @@ function addDirt(grid) {
  * @param {number} count - Number of boulders to place
  */
 function addBoulders(grid, count) {
-    const width = grid[0].length;
-    const height = grid.length;
+    // Create boulder clusters
+    const clusterCount = Math.floor(count / 4);
     
-    // Try to cluster some boulders together
-    const clusters = Math.min(10, Math.floor(count / 3));
-    
-    for (let c = 0; c < clusters; c++) {
-        const clusterX = getRandomInt(3, width - 4);
-        const clusterY = getRandomInt(3, height - 4);
-        const clusterSize = getRandomInt(2, 4);
+    for (let c = 0; c < clusterCount; c++) {
+        // Choose a random point for the cluster center
+        const centerX = getRandomInt(5, grid[0].length - 6);
+        const centerY = getRandomInt(5, grid.length - 6);
         
-        for (let dy = -clusterSize; dy <= clusterSize; dy++) {
-            for (let dx = -clusterSize; dx <= clusterSize; dx++) {
-                const x = clusterX + dx;
-                const y = clusterY + dy;
-                
-                if (isInBounds(x, y, width, height) && grid[y][x] === ELEMENT_TYPES.DIRT) {
-                    if (Math.random() > 0.5) {
-                        grid[y][x] = ELEMENT_TYPES.BOULDER;
-                    }
-                }
+        // Add boulders around the center point
+        const clusterSize = getRandomInt(2, 5);
+        
+        for (let i = 0; i < clusterSize; i++) {
+            const offsetX = getRandomInt(-3, 3);
+            const offsetY = getRandomInt(-3, 3);
+            const x = Math.min(Math.max(1, centerX + offsetX), grid[0].length - 2);
+            const y = Math.min(Math.max(1, centerY + offsetY), grid.length - 2);
+            
+            // Place boulder if the space is dirt
+            if (grid[y][x] === ELEMENT_TYPES.DIRT) {
+                grid[y][x] = ELEMENT_TYPES.BOULDER;
             }
         }
     }
     
-    // Place remaining boulders randomly
-    let placedBoulders = 0;
-    let attempts = 0;
+    // Add some individual boulders
+    const remainingBoulders = count - (clusterCount * 4);
     
-    while (placedBoulders < count && attempts < count * 3) {
-        attempts++;
+    for (let i = 0; i < remainingBoulders; i++) {
+        // Choose a random location for the boulder
+        const x = getRandomInt(2, grid[0].length - 3);
+        const y = getRandomInt(2, grid.length - 3);
         
-        const x = getRandomInt(2, width - 3);
-        const y = getRandomInt(2, height - 3);
-        
+        // Place boulder if the space is dirt
         if (grid[y][x] === ELEMENT_TYPES.DIRT) {
             grid[y][x] = ELEMENT_TYPES.BOULDER;
-            placedBoulders++;
         }
     }
 }
@@ -183,50 +177,51 @@ function addBoulders(grid, count) {
  * Add diamonds to the grid
  * @param {Array<Array<number>>} grid - The game grid
  * @param {number} count - Number of diamonds to place
- * @returns {Array<{x: number, y: number}>} - Array of diamond positions
+ * @returns {Array<{x: number, y: number}>} - Positions of placed diamonds
  */
 function addDiamonds(grid, count) {
-    const width = grid[0].length;
-    const height = grid.length;
     const diamonds = [];
     
-    // Create some diamond clusters
-    const clusters = Math.min(8, Math.floor(count / 4));
+    // Some diamonds in small clusters
+    const clusterCount = Math.floor(count / 3);
     
-    for (let c = 0; c < clusters; c++) {
-        const clusterX = getRandomInt(3, width - 4);
-        const clusterY = getRandomInt(3, height - 4);
-        const clusterSize = getRandomInt(1, 3);
+    for (let c = 0; c < clusterCount; c++) {
+        // Choose a random point for the cluster center
+        const centerX = getRandomInt(3, grid[0].length - 4);
+        const centerY = getRandomInt(3, grid.length - 4);
         
-        for (let dy = -clusterSize; dy <= clusterSize; dy++) {
-            for (let dx = -clusterSize; dx <= clusterSize; dx++) {
-                const x = clusterX + dx;
-                const y = clusterY + dy;
-                
-                if (isInBounds(x, y, width, height) && grid[y][x] === ELEMENT_TYPES.DIRT) {
-                    if (Math.random() > 0.5) {
-                        grid[y][x] = ELEMENT_TYPES.DIAMOND;
-                        diamonds.push({x, y});
-                    }
-                }
+        // Add diamonds around the center point
+        const clusterSize = getRandomInt(2, 4);
+        
+        for (let i = 0; i < clusterSize; i++) {
+            const offsetX = getRandomInt(-2, 2);
+            const offsetY = getRandomInt(-2, 2);
+            const x = Math.min(Math.max(1, centerX + offsetX), grid[0].length - 2);
+            const y = Math.min(Math.max(1, centerY + offsetY), grid.length - 2);
+            
+            // Place diamond if the space is dirt
+            if (grid[y][x] === ELEMENT_TYPES.DIRT) {
+                grid[y][x] = ELEMENT_TYPES.DIAMOND;
+                diamonds.push({ x, y });
             }
         }
     }
     
-    // Place remaining diamonds randomly
-    let placedDiamonds = diamonds.length;
+    // Rest of diamonds are scattered individually
+    const scatteredCount = count - diamonds.length;
     let attempts = 0;
     
-    while (placedDiamonds < count && attempts < count * 3) {
+    while (diamonds.length < count && attempts < 100) {
         attempts++;
         
-        const x = getRandomInt(2, width - 3);
-        const y = getRandomInt(2, height - 3);
+        // Choose a random location for the diamond
+        const x = getRandomInt(1, grid[0].length - 2);
+        const y = getRandomInt(1, grid.length - 2);
         
+        // Place diamond if the space is dirt
         if (grid[y][x] === ELEMENT_TYPES.DIRT) {
             grid[y][x] = ELEMENT_TYPES.DIAMOND;
-            diamonds.push({x, y});
-            placedDiamonds++;
+            diamonds.push({ x, y });
         }
     }
     
@@ -234,43 +229,72 @@ function addDiamonds(grid, count) {
 }
 
 /**
- * Place an element in the grid within specified bounds
+ * Place an element at a random position within a specified area
  * @param {Array<Array<number>>} grid - The game grid
- * @param {number} elementType - Type of element to place
- * @param {number} minX - Minimum X coordinate
- * @param {number} minY - Minimum Y coordinate
- * @param {number} maxX - Maximum X coordinate
- * @param {number} maxY - Maximum Y coordinate
- * @returns {Object|null} - Position where element was placed or null
+ * @param {number} element - The element type to place
+ * @param {number} minX - Minimum x coordinate
+ * @param {number} minY - Minimum y coordinate
+ * @param {number} maxX - Maximum x coordinate
+ * @param {number} maxY - Maximum y coordinate
+ * @returns {{x: number, y: number}} - Position where the element was placed
  */
-function placeElement(grid, elementType, minX, minY, maxX, maxY) {
-    const width = grid[0].length;
-    const height = grid.length;
+function placeElement(grid, element, minX, minY, maxX, maxY) {
+    // Try to find an empty spot
+    let attempts = 0;
+    while (attempts < 50) {
+        const x = getRandomInt(minX, maxX);
+        const y = getRandomInt(minY, maxY);
+        
+        // Check if position is valid
+        if (isInBounds(x, y, grid[0].length, grid.length) && 
+            grid[y][x] === ELEMENT_TYPES.DIRT) {
+            
+            grid[y][x] = element;
+            return { x, y };
+        }
+        
+        attempts++;
+    }
     
-    // Ensure bounds are valid
-    minX = Math.max(1, minX);
-    minY = Math.max(1, minY);
-    maxX = Math.min(width - 2, maxX);
-    maxY = Math.min(height - 2, maxY);
+    // If no spot found, force placement at the center of the region
+    const x = Math.floor((minX + maxX) / 2);
+    const y = Math.floor((minY + maxY) / 2);
     
-    // Create a list of possible positions
-    const positions = [];
-    for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-            if (grid[y][x] === ELEMENT_TYPES.DIRT || grid[y][x] === ELEMENT_TYPES.EMPTY) {
-                positions.push({x, y});
+    if (isInBounds(x, y, grid[0].length, grid.length)) {
+        grid[y][x] = element;
+        return { x, y };
+    }
+    
+    // Fallback to a default position
+    return { x: minX, y: minY };
+}
+
+/**
+ * Validate a generated level to ensure it's playable
+ * @param {Array<Array<number>>} grid - The game grid
+ * @param {{x: number, y: number}} playerPos - Player position
+ * @param {{x: number, y: number}} exitPos - Exit position
+ * @returns {boolean} - Whether the level is valid
+ */
+export function validateLevel(grid, playerPos, exitPos) {
+    // Check if player and exit are placed
+    if (!playerPos || !exitPos) return false;
+    
+    // Simple path validation - just check that there's a reasonable number of empty spaces
+    // For a more thorough check, we'd need a path finding algorithm
+    let emptyCount = 0;
+    
+    for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < grid[0].length; x++) {
+            if (grid[y][x] === ELEMENT_TYPES.DIRT || 
+                grid[y][x] === ELEMENT_TYPES.DIAMOND ||
+                grid[y][x] === ELEMENT_TYPES.EMPTY) {
+                emptyCount++;
             }
         }
     }
     
-    // Shuffle positions and try to place element
-    const shuffledPositions = shuffleArray(positions);
-    
-    if (shuffledPositions.length > 0) {
-        const pos = shuffledPositions[0];
-        grid[pos.y][pos.x] = elementType;
-        return {x: pos.x, y: pos.y};
-    }
-    
-    return null;
+    // At least 60% of the grid should be traversable
+    const totalSize = grid.length * grid[0].length;
+    return emptyCount / totalSize > 0.6;
 }

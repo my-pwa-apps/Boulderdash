@@ -99,25 +99,22 @@ export class GamePhysics {
      * Try to roll an object in a given direction
      * @param {number} x - The x coordinate
      * @param {number} y - The y coordinate
-     * @param {number} dx - The x direction (-1 for left, 1 for right)
-     * @returns {boolean} - Whether the object rolled
+     * @param {number} direction - Direction to roll (1 for right, -1 for left)
+     * @returns {boolean} - Whether the object rolled successfully
      */
-    tryRoll(x, y, dx) {
-        if (!isInBounds(x + dx, y, this.width, this.height) || 
-            !isInBounds(x + dx, y + 1, this.width, this.height)) {
-            return false;
-        }
-        
+    tryRoll(x, y, direction) {
         const element = this.grid[y][x];
         
-        // Check if there's space to roll (need both adjacent and below adjacent to be empty)
-        if (this.grid[y][x + dx] === ELEMENT_TYPES.EMPTY && 
-            this.grid[y + 1][x + dx] === ELEMENT_TYPES.EMPTY) {
+        // Check if we can roll in that direction
+        if (x + direction >= 0 && 
+            x + direction < this.width &&
+            this.grid[y][x + direction] === ELEMENT_TYPES.EMPTY &&
+            this.grid[y + 1][x + direction] === ELEMENT_TYPES.EMPTY) {
             
-            // Move object
-            this.grid[y][x + dx] = element;
+            // Move the object
+            this.grid[y][x + direction] = element;
             this.grid[y][x] = ELEMENT_TYPES.EMPTY;
-            this.fallingObjects.add(`${x+dx},${y}`);
+            
             return true;
         }
         
@@ -125,204 +122,227 @@ export class GamePhysics {
     }
     
     /**
-     * Check if there's a crushing hazard at the given position
+     * Check if a position contains a falling object
      * @param {number} x - The x coordinate
      * @param {number} y - The y coordinate
-     * @returns {boolean} - Whether there's a crushing hazard
+     * @returns {boolean} - Whether the position has a falling object
      */
-    checkCrush(x, y) {
+    isFallingAt(x, y) {
         return this.fallingObjects.has(`${x},${y}`);
     }
     
     /**
      * Handle player movement
-     * @param {Object} playerPos - Player position {x, y}
-     * @param {string} direction - Direction to move ('UP', 'DOWN', 'LEFT', 'RIGHT')
-     * @returns {Object} - Movement result
+     * @param {number} playerX - Player's current x position
+     * @param {number} playerY - Player's current y position
+     * @param {string} direction - Direction to move
+     * @returns {Object} - Result of the move {success, newX, newY, collected, crushed, exit}
      */
-    movePlayer(playerPos, direction) {
+    movePlayer(playerX, playerY, direction) {
         const dir = DIRECTIONS[direction];
         if (!dir) return { success: false };
         
-        // Calculate new position
-        const newX = playerPos.x + dir.x;
-        const newY = playerPos.y + dir.y;
+        const newX = playerX + dir.x;
+        const newY = playerY + dir.y;
         
-        // Check if the new position is valid
+        // Check if the move is valid
         if (!isInBounds(newX, newY, this.width, this.height)) {
             return { success: false };
         }
         
+        // Check target cell
         const targetElement = this.grid[newY][newX];
-        let collectDiamond = false;
-        let exitReached = false;
-        let died = false;
         
-        // Check what's in the target position
+        // Result object
+        const result = {
+            success: false,
+            newX: playerX,
+            newY: playerY,
+            collected: false,
+            crushed: false,
+            exit: false
+        };
+        
         switch (targetElement) {
             case ELEMENT_TYPES.EMPTY:
             case ELEMENT_TYPES.DIRT:
-                // Can move freely into empty space or dirt
+                // Move to empty space or dig through dirt
+                this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
+                this.grid[playerY][playerX] = ELEMENT_TYPES.EMPTY;
+                result.success = true;
+                result.newX = newX;
+                result.newY = newY;
                 break;
                 
             case ELEMENT_TYPES.DIAMOND:
-                collectDiamond = true;
-                break;
-                
-            case ELEMENT_TYPES.EXIT:
-                exitReached = true;
+                // Collect diamond
+                this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
+                this.grid[playerY][playerX] = ELEMENT_TYPES.EMPTY;
+                result.success = true;
+                result.newX = newX;
+                result.newY = newY;
+                result.collected = true;
                 break;
                 
             case ELEMENT_TYPES.BOULDER:
-                // Check if the boulder can be pushed
-                if (dir.x !== 0 && dir.y === 0) { // Only horizontal push
-                    const pushX = newX + dir.x;
-                    
-                    if (isInBounds(pushX, newY, this.width, this.height) && 
-                        this.grid[newY][pushX] === ELEMENT_TYPES.EMPTY) {
-                        // Move the boulder
-                        this.grid[newY][pushX] = ELEMENT_TYPES.BOULDER;
-                        break;
-                    }
+                // Try to push boulder
+                if (this.tryPushBoulder(newX, newY, dir.x, dir.y)) {
+                    this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
+                    this.grid[playerY][playerX] = ELEMENT_TYPES.EMPTY;
+                    result.success = true;
+                    result.newX = newX;
+                    result.newY = newY;
                 }
-                // If boulder can't be pushed, block movement
-                return { success: false };
-                
-            case ELEMENT_TYPES.ENEMY:
-                died = true;
                 break;
                 
-            case ELEMENT_TYPES.WALL:
-            default:
-                // Can't move into walls
-                return { success: false };
+            case ELEMENT_TYPES.EXIT:
+                // Enter exit
+                this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
+                this.grid[playerY][playerX] = ELEMENT_TYPES.EMPTY;
+                result.success = true;
+                result.newX = newX;
+                result.newY = newY;
+                result.exit = true;
+                break;
+                
+            case ELEMENT_TYPES.ENEMY:
+                // Player dies on contact with enemy
+                result.crushed = true;
+                break;
         }
         
-        // Update the grid
-        this.grid[playerPos.y][playerPos.x] = ELEMENT_TYPES.EMPTY;
-        this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
-        
-        return {
-            success: true,
-            newPosition: { x: newX, y: newY },
-            collectDiamond,
-            exitReached,
-            died
-        };
+        return result;
     }
     
     /**
-     * Move enemies in the game
-     * @param {Array<{x: number, y: number}>} enemies - Array of enemy positions
-     * @param {Object} playerPos - Player position {x, y}
-     * @returns {Object} - Movement results including updated enemy positions and whether player died
+     * Try to push a boulder in a direction
+     * @param {number} x - Boulder's x coordinate
+     * @param {number} y - Boulder's y coordinate
+     * @param {number} dirX - X direction to push
+     * @param {number} dirY - Y direction to push
+     * @returns {boolean} - Whether the boulder was pushed
      */
-    moveEnemies(enemies, playerPos) {
+    tryPushBoulder(x, y, dirX, dirY) {
+        // Can only push horizontally
+        if (dirY !== 0) return false;
+        
+        const targetX = x + dirX;
+        const targetY = y;
+        
+        // Check if target cell is empty
+        if (isInBounds(targetX, targetY, this.width, this.height) && 
+            this.grid[targetY][targetX] === ELEMENT_TYPES.EMPTY) {
+            
+            // Move the boulder
+            this.grid[targetY][targetX] = ELEMENT_TYPES.BOULDER;
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if player is crushed by a falling object
+     * @param {number} playerX - Player's x coordinate
+     * @param {number} playerY - Player's y coordinate
+     * @returns {boolean} - Whether the player is crushed
+     */
+    isPlayerCrushed(playerX, playerY) {
+        // Check cell above the player
+        if (playerY > 0) {
+            const aboveElement = this.grid[playerY - 1][playerX];
+            
+            if ((aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) &&
+                this.isFallingAt(playerX, playerY - 1)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Move enemies toward the player
+     * @param {Array<{x: number, y: number}>} enemies - Array of enemy positions
+     * @param {number} playerX - Player's x coordinate
+     * @param {number} playerY - Player's y coordinate
+     * @returns {Array<{x: number, y: number}>} - Updated enemy positions
+     */
+    moveEnemies(enemies, playerX, playerY) {
         const updatedEnemies = [];
-        let playerDied = false;
         
         for (const enemy of enemies) {
-            // Check if enemy is still alive (might have been crushed by a boulder)
-            if (this.grid[enemy.y][enemy.x] !== ELEMENT_TYPES.ENEMY) {
+            // 20% chance enemy doesn't move
+            if (Math.random() < 0.2) {
+                updatedEnemies.push({ x: enemy.x, y: enemy.y });
                 continue;
             }
             
-            // Enemy AI: Simple movement towards player if possible
-            // Randomly decide to move horizontally or vertically first
-            const moveHorizontalFirst = Math.random() > 0.5;
+            // Determine best direction to move toward player
+            const directions = [];
+            
+            // Add horizontal direction
+            if (playerX < enemy.x) {
+                directions.push({ dx: -1, dy: 0 });
+            } else if (playerX > enemy.x) {
+                directions.push({ dx: 1, dy: 0 });
+            }
+            
+            // Add vertical direction
+            if (playerY < enemy.y) {
+                directions.push({ dx: 0, dy: -1 });
+            } else if (playerY > enemy.y) {
+                directions.push({ dx: 0, dy: 1 });
+            }
+            
+            // Shuffle for some randomness
             let moved = false;
+            directions.sort(() => Math.random() - 0.5);
             
-            if (moveHorizontalFirst) {
-                moved = this.tryMoveEnemyHorizontal(enemy, playerPos) || 
-                        this.tryMoveEnemyVertical(enemy, playerPos);
-            } else {
-                moved = this.tryMoveEnemyVertical(enemy, playerPos) || 
-                        this.tryMoveEnemyHorizontal(enemy, playerPos);
+            // Try each direction
+            for (const dir of directions) {
+                const newX = enemy.x + dir.dx;
+                const newY = enemy.y + dir.dy;
+                
+                // Check if valid move
+                if (isInBounds(newX, newY, this.width, this.height) &&
+                    (this.grid[newY][newX] === ELEMENT_TYPES.EMPTY || 
+                     this.grid[newY][newX] === ELEMENT_TYPES.DIRT ||
+                     this.grid[newY][newX] === ELEMENT_TYPES.PLAYER)) {
+                    
+                    // Check if moving onto player
+                    if (this.grid[newY][newX] === ELEMENT_TYPES.PLAYER) {
+                        // Enemy catches player - just update position
+                        updatedEnemies.push({ x: newX, y: newY });
+                    } else {
+                        // Move enemy
+                        this.grid[newY][newX] = ELEMENT_TYPES.ENEMY;
+                        this.grid[enemy.y][enemy.x] = ELEMENT_TYPES.EMPTY;
+                        updatedEnemies.push({ x: newX, y: newY });
+                    }
+                    
+                    moved = true;
+                    break;
+                }
             }
             
-            // If the enemy couldn't move, keep it at its current position
+            // If couldn't move, stay in place
             if (!moved) {
-                updatedEnemies.push(enemy);
-            }
-            
-            // Check if enemy reached player
-            if (playerPos.x === enemy.x && playerPos.y === enemy.y) {
-                playerDied = true;
+                updatedEnemies.push({ x: enemy.x, y: enemy.y });
             }
         }
         
-        return { updatedEnemies, playerDied };
+        return updatedEnemies;
     }
     
     /**
-     * Try to move an enemy horizontally toward the player
-     * @param {Object} enemy - Enemy position {x, y}
-     * @param {Object} playerPos - Player position {x, y}
-     * @returns {boolean} - Whether the enemy moved
+     * Check if player collided with any enemies
+     * @param {number} playerX - Player's x coordinate
+     * @param {number} playerY - Player's y coordinate
+     * @param {Array<{x: number, y: number}>} enemies - Array of enemy positions
+     * @returns {boolean} - Whether player collided with an enemy
      */
-    tryMoveEnemyHorizontal(enemy, playerPos) {
-        const dx = Math.sign(playerPos.x - enemy.x);
-        if (dx === 0) return false;
-        
-        const newX = enemy.x + dx;
-        if (!isInBounds(newX, enemy.y, this.width, this.height)) return false;
-        
-        const targetElement = this.grid[enemy.y][newX];
-        
-        // Enemy can only move to empty spaces, dirt, or the player position
-        if (targetElement === ELEMENT_TYPES.EMPTY || 
-            targetElement === ELEMENT_TYPES.DIRT || 
-            targetElement === ELEMENT_TYPES.PLAYER) {
-            
-            // Update grid
-            this.grid[enemy.y][enemy.x] = ELEMENT_TYPES.EMPTY;
-            this.grid[enemy.y][newX] = ELEMENT_TYPES.ENEMY;
-            
-            // Update enemy position
-            enemy.x = newX;
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Try to move an enemy vertically toward the player
-     * @param {Object} enemy - Enemy position {x, y}
-     * @param {Object} playerPos - Player position {x, y}
-     * @returns {boolean} - Whether the enemy moved
-     */
-    tryMoveEnemyVertical(enemy, playerPos) {
-        const dy = Math.sign(playerPos.y - enemy.y);
-        if (dy === 0) return false;
-        
-        const newY = enemy.y + dy;
-        if (!isInBounds(enemy.x, newY, this.width, this.height)) return false;
-        
-        const targetElement = this.grid[newY][enemy.x];
-        
-        // Enemy can only move to empty spaces, dirt, or the player position
-        if (targetElement === ELEMENT_TYPES.EMPTY || 
-            targetElement === ELEMENT_TYPES.DIRT || 
-            targetElement === ELEMENT_TYPES.PLAYER) {
-            
-            // Update grid
-            this.grid[enemy.y][enemy.x] = ELEMENT_TYPES.EMPTY;
-            this.grid[newY][enemy.x] = ELEMENT_TYPES.ENEMY;
-            
-            // Update enemy position
-            enemy.y = newY;
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Get the current grid state
-     * @returns {Array<Array<number>>} - The current game grid
-     */
-    getGrid() {
-        return this.grid;
+    checkEnemyCollision(playerX, playerY, enemies) {
+        return enemies.some(enemy => enemy.x === playerX && enemy.y === playerY);
     }
 }

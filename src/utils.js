@@ -80,3 +80,38 @@ export function cloneGrid(grid) {
 export function createGrid(width, height, fillValue) {
     return Array(height).fill().map(() => Array(width).fill(fillValue));
 }
+
+/**
+ * Sleep/pause execution for a given number of milliseconds
+ * @param {number} ms - The number of milliseconds to sleep
+ * @returns {Promise} - A promise that resolves after the given time
+ */
+export function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Debounce a function to prevent excessive calls
+ * @param {Function} func - The function to debounce
+ * @param {number} delay - The delay in milliseconds
+ * @returns {Function} - The debounced function
+ */
+export function debounce(func, delay) {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), delay);
+    };
+}
+
+/**
+ * Linearly interpolate between two values
+ * @param {number} a - Start value
+ * @param {number} b - End value
+ * @param {number} t - Interpolation factor (0-1)
+ * @returns {number} - The interpolated value
+ */
+export function lerp(a, b, t) {
+    return a + (b - a) * t;
+}

@@ -7,7 +7,8 @@ import {
     GRID_HEIGHT, 
     ELEMENT_TYPES,
     KEY_MAPPINGS,
-    GAME_SETTINGS
+    GAME_SETTINGS,
+    DIRECTIONS
 } from './constants.js';
 import { formatTime } from './utils.js';
 
@@ -33,12 +34,21 @@ class Game {
         
         // Game state
         this.isRunning = false;
+        this.gameOver = false;
         this.level = 1;
         this.score = 0;
         this.diamondsCollected = 0;
         this.requiredDiamonds = 0;
         this.totalDiamonds = 0;
         this.timeRemaining = GAME_SETTINGS.INITIAL_TIME;
+        
+        // Player state
+        this.playerPosition = { x: 0, y: 0 };
+        this.exitOpen = false;
+        
+        // Enemy state
+        this.enemies = [];
+        this.enemyMoveCounter = 0;
         
         // Animation frame ID for cancellation
         this.animationFrameId = null;
@@ -58,6 +68,9 @@ class Game {
         // Set up the initial screen
         this.startButton.addEventListener('click', () => this.startGame());
         this.restartButton.addEventListener('click', () => this.restartGame());
+        
+        // Draw title screen
+        this.drawTitleScreen();
     }
     
     /**
@@ -65,7 +78,7 @@ class Game {
      */
     setupEventListeners() {
         window.addEventListener('keydown', (e) => {
-            if (!this.isRunning) return;
+            if (!this.isRunning || this.gameOver) return;
             
             // Handle directional input
             const direction = KEY_MAPPINGS[e.key];
@@ -106,7 +119,7 @@ class Game {
             width = height * aspectRatio;
         }
         
-        // Set display size
+        // Apply CSS scaling
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
     }
@@ -117,32 +130,51 @@ class Game {
     startGame() {
         this.level = 1;
         this.score = 0;
+        this.isRunning = true;
+        this.gameOver = false;
+        
         this.startButton.style.display = 'none';
         this.restartButton.style.display = 'inline-block';
-        this.startLevel();
+        
+        this.loadLevel(this.level);
+        this.startTimer();
+        this.gameLoop();
+        
+        // Initial resize
+        this.handleResize();
     }
     
     /**
-     * Restart the game
+     * Restart the current game
      */
     restartGame() {
-        // Stop any running game
-        this.stopGame();
-        this.level = 1;
-        this.score = 0;
-        this.startLevel();
+        this.stopTimer();
+        this.startGame();
     }
     
     /**
-     * Stop the current game
+     * Start the game timer
      */
-    stopGame() {
-        this.isRunning = false;
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
+    startTimer() {
+        this.stopTimer();
+        this.timeRemaining = GAME_SETTINGS.INITIAL_TIME + (this.level * 30);
         
+        this.timerInterval = setInterval(() => {
+            if (this.isRunning && !this.gameOver) {
+                this.timeRemaining--;
+                this.updateHUD();
+                
+                if (this.timeRemaining <= 0) {
+                    this.handlePlayerDeath("Time's up!");
+                }
+            }
+        }, 1000);
+    }
+    
+    /**
+     * Stop the game timer
+     */
+    stopTimer() {
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
@@ -150,11 +182,14 @@ class Game {
     }
     
     /**
-     * Start the current level
+     * Load a level
+     * @param {number} levelNumber - The level number to load
      */
-    startLevel() {
-        // Generate a new level
-        const levelData = generateLevel(this.level);
+    loadLevel(levelNumber) {
+        // Generate the level
+        const levelData = generateLevel(levelNumber);
+        
+        // Set up game state
         this.grid = levelData.grid;
         this.playerPosition = levelData.playerPosition;
         this.exitPosition = levelData.exitPosition;
@@ -162,33 +197,23 @@ class Game {
         this.requiredDiamonds = levelData.requiredDiamonds;
         this.totalDiamonds = levelData.diamonds.length;
         this.diamondsCollected = 0;
-        this.timeRemaining = GAME_SETTINGS.INITIAL_TIME;
+        this.exitOpen = false;
         
-        // Create physics engine for the level
+        // Create physics engine
         this.physics = new GamePhysics(this.grid);
         
-        // Update UI
-        this.updateUI();
-        
-        // Start the game loop
-        this.isRunning = true;
-        this.lastFrameTime = performance.now();
-        this.gameLoop();
-        
-        // Start the timer
-        this.timerInterval = setInterval(() => {
-            if (this.isRunning) {
-                this.timeRemaining--;
-                this.updateUI();
-                
-                if (this.timeRemaining <= 0) {
-                    this.handlePlayerDeath();
-                }
-            }
-        }, 1000);
-        
-        // Handle initial resize
-        this.handleResize();
+        // Update HUD
+        this.updateHUD();
+    }
+    
+    /**
+     * Update the heads-up display
+     */
+    updateHUD() {
+        this.scoreElement.textContent = `Score: ${this.score}`;
+        this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.totalDiamonds}`;
+        this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
+        this.levelElement.textContent = `Level: ${this.level}`;
     }
     
     /**
@@ -197,220 +222,275 @@ class Game {
     gameLoop() {
         if (!this.isRunning) return;
         
-        const currentTime = performance.now();
-        const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
-        this.lastFrameTime = currentTime;
+        // Update physics
+        this.updatePhysics();
         
-        // Update game state
-        this.update(deltaTime);
+        // Update enemies periodically
+        this.enemyMoveCounter++;
+        if (this.enemyMoveCounter >= 20) {
+            this.updateEnemies();
+            this.enemyMoveCounter = 0;
+        }
+        
+        // Check for player crushing
+        this.checkPlayerStatus();
         
         // Render the game
         this.render();
         
-        // Schedule next frame
+        // Request next frame
         this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     }
     
     /**
-     * Update game state
-     * @param {number} deltaTime - Time since last frame in seconds
+     * Update game physics
      */
-    update(deltaTime) {
-        // Update physics every few frames for falling objects
+    updatePhysics() {
+        // Only run physics every few frames for performance
         this.physicsStep++;
-        if (this.physicsStep >= GAME_SETTINGS.BOULDER_FALL_SPEED) {
-            const physicsUpdated = this.physics.update();
-            
-            // Check if any falling objects crushed the player
-            if (physicsUpdated && this.physics.checkCrush(this.playerPosition.x, this.playerPosition.y)) {
-                this.handlePlayerDeath();
-            }
-            
-            // Reset physics step counter
+        if (this.physicsStep >= 3) {
+            this.physics.update();
             this.physicsStep = 0;
-            
-            // Update enemy positions every physics update
-            this.updateEnemies();
         }
     }
     
     /**
-     * Update enemy positions and check for collisions
+     * Update enemy movement
      */
     updateEnemies() {
-        // Only move enemies occasionally to make them slower than the player
-        if (Math.random() > GAME_SETTINGS.ENEMY_SPEED) return;
+        if (this.enemies.length > 0) {
+            this.enemies = this.physics.moveEnemies(
+                this.enemies, 
+                this.playerPosition.x, 
+                this.playerPosition.y
+            );
+            
+            // Check if enemy caught the player
+            if (this.physics.checkEnemyCollision(this.playerPosition.x, this.playerPosition.y, this.enemies)) {
+                this.handlePlayerDeath("Caught by an enemy!");
+            }
+        }
+    }
+    
+    /**
+     * Check player status for crushing, etc.
+     */
+    checkPlayerStatus() {
+        if (!this.isRunning || this.gameOver) return;
         
-        // Move enemies
-        const enemyResult = this.physics.moveEnemies(this.enemies, this.playerPosition);
-        this.enemies = enemyResult.updatedEnemies;
+        // Check if player is crushed by falling objects
+        if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
+            this.handlePlayerDeath("Crushed by a falling object!");
+        }
         
-        // Check if player died
-        if (enemyResult.playerDied) {
-            this.handlePlayerDeath();
+        // Check if exit should be open
+        if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
+            this.exitOpen = true;
+            this.showMessage("Exit is now open!");
         }
     }
     
     /**
      * Handle player movement
-     * @param {string} direction - The direction to move ('UP', 'DOWN', 'LEFT', 'RIGHT')
+     * @param {string} direction - Direction to move (UP, DOWN, LEFT, RIGHT)
      */
     handlePlayerMove(direction) {
-        const moveResult = this.physics.movePlayer(this.playerPosition, direction);
+        if (!this.isRunning || this.gameOver) return;
+        
+        const moveResult = this.physics.movePlayer(
+            this.playerPosition.x,
+            this.playerPosition.y,
+            direction
+        );
         
         if (moveResult.success) {
-            // Update player position
-            this.playerPosition = moveResult.newPosition;
+            this.playerPosition.x = moveResult.newX;
+            this.playerPosition.y = moveResult.newY;
             
-            // Handle diamond collection
-            if (moveResult.collectDiamond) {
+            // Check if diamond collected
+            if (moveResult.collected) {
                 this.diamondsCollected++;
                 this.score += GAME_SETTINGS.DIAMOND_VALUE;
-                this.updateUI();
-                
-                // Check if exit should be unlocked
-                if (this.diamondsCollected >= this.requiredDiamonds) {
-                    // Visual indicator that exit is active
-                    this.grid[this.exitPosition.y][this.exitPosition.x] = ELEMENT_TYPES.EXIT;
-                }
+                this.updateHUD();
             }
             
-            // Check if player reached the exit
-            if (moveResult.exitReached && this.diamondsCollected >= this.requiredDiamonds) {
+            // Check if player reached exit
+            if (moveResult.exit && this.exitOpen) {
                 this.completeLevel();
             }
             
-            // Check if player died
-            if (moveResult.died) {
-                this.handlePlayerDeath();
+            // Check if player was crushed
+            if (moveResult.crushed) {
+                this.handlePlayerDeath("Caught by an enemy!");
             }
-            
-            // Update the grid in the physics engine
-            this.grid = this.physics.getGrid();
         }
-    }
-    
-    /**
-     * Handle player death
-     */
-    handlePlayerDeath() {
-        this.isRunning = false;
-        this.showMessage('Game Over! Press Restart to try again.');
-        this.restartButton.style.display = 'inline-block';
-        this.stopGame();
     }
     
     /**
      * Complete the current level
      */
     completeLevel() {
-        // Add bonus points for completing the level
-        const timeBonus = this.timeRemaining * 2;
-        this.score += timeBonus;
-        
-        // Move to the next level
         this.level++;
         
         if (this.level > GAME_SETTINGS.LEVEL_COUNT) {
-            // Player beat the game
-            this.showMessage(`You beat the game! Final score: ${this.score}`);
-            this.stopGame();
+            this.gameWon();
         } else {
-            // Start the next level
-            this.showMessage(`Level ${this.level - 1} complete! Time bonus: ${timeBonus} points`);
-            setTimeout(() => this.startLevel(), 2000);
+            this.showMessage(`Level ${this.level - 1} completed!`);
+            this.stopTimer();
+            
+            // Add bonus points for remaining time
+            const timeBonus = this.timeRemaining * 5;
+            this.score += timeBonus;
+            
+            setTimeout(() => {
+                this.loadLevel(this.level);
+                this.startTimer();
+            }, 2000);
         }
     }
     
     /**
-     * Show a message on screen
-     * @param {string} message - The message to display
+     * Handle player death
+     * @param {string} reason - Reason for death
      */
-    showMessage(message) {
-        const messageElement = document.createElement('div');
-        messageElement.className = 'game-message';
-        messageElement.textContent = message;
-        messageElement.style.position = 'absolute';
-        messageElement.style.top = '50%';
-        messageElement.style.left = '50%';
-        messageElement.style.transform = 'translate(-50%, -50%)';
-        messageElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        messageElement.style.color = 'white';
-        messageElement.style.padding = '20px';
-        messageElement.style.borderRadius = '10px';
-        messageElement.style.fontSize = '24px';
-        messageElement.style.textAlign = 'center';
-        messageElement.style.zIndex = '100';
+    handlePlayerDeath(reason) {
+        this.isRunning = false;
+        this.gameOver = true;
+        this.showMessage(`Game Over! ${reason}`);
         
-        this.canvas.parentElement.appendChild(messageElement);
+        // Stop the timer
+        this.stopTimer();
         
-        setTimeout(() => {
-            messageElement.remove();
-        }, 2000);
+        // Show restart button
+        this.restartButton.style.display = 'inline-block';
     }
     
     /**
-     * Render the game
+     * Handle game completion
+     */
+    gameWon() {
+        this.isRunning = false;
+        this.gameOver = true;
+        this.showMessage(`Congratulations! You've won with ${this.score} points!`);
+        
+        // Stop the timer
+        this.stopTimer();
+        
+        // Show restart button
+        this.restartButton.style.display = 'inline-block';
+    }
+    
+    /**
+     * Show a message on screen
+     * @param {string} text - The message to show
+     */
+    showMessage(text) {
+        // Draw message overlay
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, this.canvas.height / 2 - 40, this.canvas.width, 80);
+        
+        this.ctx.font = '24px Arial, sans-serif';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2 + 10);
+    }
+    
+    /**
+     * Draw the title screen
+     */
+    drawTitleScreen() {
+        // Clear the canvas
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw title text
+        this.ctx.font = '36px Arial, sans-serif';
+        this.ctx.fillStyle = '#ffcc00';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 3);
+        
+        // Draw instructions
+        this.ctx.font = '22px Arial, sans-serif';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Collect diamonds and reach the exit!', this.canvas.width / 2, this.canvas.height / 2);
+        
+        this.ctx.font = '18px Arial, sans-serif';
+        this.ctx.fillText('Arrow keys or WASD to move', this.canvas.width / 2, this.canvas.height / 2 + 40);
+        
+        // Draw some decorative elements
+        this.drawSampleElements();
+    }
+    
+    /**
+     * Draw sample game elements on the title screen
+     */
+    drawSampleElements() {
+        // Draw some sample diamonds and boulders around the edges
+        for (let i = 0; i < 8; i++) {
+            const x = (i % 4) * (this.canvas.width / 4) + TILE_SIZE;
+            
+            // Diamonds at the top
+            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.DIAMOND], 
+                x, TILE_SIZE, 
+                TILE_SIZE, TILE_SIZE);
+            
+            // Boulders at the bottom
+            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.BOULDER], 
+                x, this.canvas.height - TILE_SIZE * 2, 
+                TILE_SIZE, TILE_SIZE);
+        }
+    }
+    
+    /**
+     * Render the game state
      */
     render() {
         // Clear the canvas
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw the grid
+        // Render grid
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
                 const element = this.grid[y][x];
                 
-                // Skip empty spaces
+                // Skip empty cells
                 if (element === ELEMENT_TYPES.EMPTY) continue;
                 
-                // Get correct sprite for element
-                let sprite;
-                switch (element) {
-                    case ELEMENT_TYPES.WALL:
-                        sprite = this.sprites.WALL;
-                        break;
-                    case ELEMENT_TYPES.DIRT:
-                        sprite = this.sprites.DIRT;
-                        break;
-                    case ELEMENT_TYPES.BOULDER:
-                        sprite = this.sprites.BOULDER;
-                        break;
-                    case ELEMENT_TYPES.DIAMOND:
-                        sprite = this.sprites.DIAMOND;
-                        break;
-                    case ELEMENT_TYPES.EXIT:
-                        sprite = this.sprites.EXIT;
-                        break;
-                    case ELEMENT_TYPES.PLAYER:
-                        sprite = this.sprites.PLAYER;
-                        break;
-                    case ELEMENT_TYPES.ENEMY:
-                        sprite = this.sprites.ENEMY;
-                        break;
-                    default:
-                        continue;
-                }
-                
-                // Draw the sprite
-                this.ctx.drawImage(sprite, x * TILE_SIZE, y * TILE_SIZE);
+                // Draw the element
+                this.ctx.drawImage(
+                    this.sprites[element],
+                    x * TILE_SIZE,
+                    y * TILE_SIZE,
+                    TILE_SIZE,
+                    TILE_SIZE
+                );
             }
         }
-    }
-    
-    /**
-     * Update the UI elements
-     */
-    updateUI() {
-        this.scoreElement.textContent = `Score: ${this.score}`;
-        this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
-        this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
-        this.levelElement.textContent = `Level: ${this.level}`;
+        
+        // Open exit indication
+        if (this.exitOpen) {
+            // Add pulsing effect to the exit
+            const pulseScale = 1 + 0.1 * Math.sin(Date.now() / 200);
+            const exitX = this.exitPosition.x * TILE_SIZE;
+            const exitY = this.exitPosition.y * TILE_SIZE;
+            
+            this.ctx.save();
+            this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
+            this.ctx.scale(pulseScale, pulseScale);
+            this.ctx.drawImage(
+                this.sprites[ELEMENT_TYPES.EXIT],
+                -TILE_SIZE / 2,
+                -TILE_SIZE / 2,
+                TILE_SIZE,
+                TILE_SIZE
+            );
+            this.ctx.restore();
+        }
     }
 }
 
-// Initialize the game when the page is loaded
-window.addEventListener('load', () => {
+// Start the game when the DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
 });
