@@ -457,8 +457,16 @@ class Game {
         console.log('Move result:', moveResult);
 
         if (moveResult.success) {
+            // Clear the old player position in the grid
+            this.grid[this.playerPosition.y][this.playerPosition.x] = ELEMENT_TYPES.EMPTY;
+
+            // Update the player's position
             this.playerPosition.x = moveResult.newX;
             this.playerPosition.y = moveResult.newY;
+
+            // Set the new player position in the grid
+            this.grid[this.playerPosition.y][this.playerPosition.x] = ELEMENT_TYPES.PLAYER;
+
             console.log(`Player moved to: ${this.playerPosition.x}, ${this.playerPosition.y}`);
 
             // Play movement sound
