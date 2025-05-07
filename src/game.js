@@ -377,12 +377,24 @@ class Game {
         this.physicsStep++;
         if (this.physicsStep >= 3) {
             const physicsChanged = this.physics.update();
-            
-            // Play fall sound if something moved
-            if (physicsChanged && this.physics.fallingObjects.size > 0) {
-                this.sound.play('fall');
+
+            // Check for falling objects and their interaction with the player
+            if (physicsChanged) {
+                for (const [x, y] of this.physics.fallingObjects) {
+                    // If a falling object lands on the player's position, handle crushing
+                    if (x === this.playerPosition.x && y + 1 === this.playerPosition.y) {
+                        this.sound.play('crush');
+                        this.handlePlayerDeath("Crushed by a falling object!");
+                        return;
+                    }
+                }
+
+                // Play fall sound if something moved
+                if (this.physics.fallingObjects.size > 0) {
+                    this.sound.play('fall');
+                }
             }
-            
+
             this.physicsStep = 0;
         }
     }
