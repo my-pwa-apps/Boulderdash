@@ -111,8 +111,11 @@ class Game {
             }
         });
         
-        // Initialize the title screen (moved after drawTitleScreen is defined)
-        setTimeout(() => this.drawTitleScreen(), 0);
+        // Initialize the title screen properly using requestAnimationFrame
+        // This ensures all methods are properly defined before calling
+        requestAnimationFrame(() => {
+            this.drawTitleScreen();
+        });
     }
     
     /**
@@ -264,7 +267,7 @@ class Game {
         }
         
         // Display pause message
-        this.showMessage('GAME PAUSED', 'Press any key to continue');
+        this.renderMessage('GAME PAUSED', 'Press any key to continue');
         
         // Resume on any key press
         const resumeHandler = (e) => {
@@ -639,7 +642,7 @@ class Game {
         if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
             this.exitOpen = true;
             this.sound.play('exit');
-            this.showMessage("Exit is now open!");
+            this.renderMessage("Exit is now open!");
             
             // Add particles effect around the exit
             this.createExitParticles();
@@ -727,7 +730,7 @@ class Game {
         if (this.level > GAME_SETTINGS.LEVEL_COUNT) {
             this.gameWon();
         } else {
-            this.showMessage(`Level ${this.level - 1} completed!`);
+            this.renderMessage(`Level ${this.level - 1} completed!`);
             this.stopTimer();
             
             // Add bonus points for remaining time
@@ -756,7 +759,8 @@ class Game {
         // Play game over sound
         this.sound.play('gameOver');
         
-        this.showMessage(`Game Over!`, reason);
+        // Render death message directly instead of using showMessage
+        this.renderMessage(`Game Over!`, reason);
         
         // Create death particles
         this.createDeathParticles();
@@ -769,488 +773,13 @@ class Game {
     }
     
     /**
-     * Handle game completion
-     */
-    gameWon() {
-        this.isRunning = false;
-        this.gameOver = true;
-        
-        // Play level complete sound
-        this.sound.play('complete');
-        
-        this.showMessage(`Congratulations!`, `You've won with ${this.score} points!`);
-        
-        // Create celebration particles
-        this.createCelebrationParticles();
-        
-        // Stop the timer
-        this.stopTimer();
-        
-        // Show restart button
-        this.restartButton.style.display = 'inline-block';
-    }
-    
-    /**
-     * Create particles when collecting a diamond
-     */
-    createCollectParticles(x, y) {
-        const centerX = x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = y * TILE_SIZE + TILE_SIZE / 2;
-        
-        // Create sparkles
-        for (let i = 0; i < 10; i++) {
-            this.particles.push({
-                x: centerX,
-                y: centerY,
-                vx: (Math.random() - 0.5) * 3,
-                vy: (Math.random() - 0.5) * 3,
-                color: '#00FFFF',
-                size: Math.random() * 3 + 1,
-                life: 30
-            });
-        }
-    }
-    
-    /**
-     * Create particles when exit opens
-     */
-    createExitParticles() {
-        const centerX = this.exitPosition.x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = this.exitPosition.y * TILE_SIZE + TILE_SIZE / 2;
-        
-        // Create sparkles around exit
-        for (let i = 0; i < 40; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 30 + 10;
-            
-            this.particles.push({
-                x: centerX + Math.cos(angle) * distance,
-                y: centerY + Math.sin(angle) * distance,
-                vx: Math.cos(angle) * 2,
-                vy: Math.sin(angle) * 2,
-                color: '#FF00FF',
-                size: Math.random() * 4 + 2,
-                life: 60
-            });
-        }
-    }
-    
-    /**
-     * Create celebration particles
-     */
-    createCelebrationParticles() {
-        for (let i = 0; i < 100; i++) {
-            this.particles.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
-                vx: (Math.random() - 0.5) * 6,
-                vy: (Math.random() - 0.5) * 6,
-                color: `hsl(${Math.random() * 360}, 100%, 60%)`,
-                size: Math.random() * 5 + 2,
-                life: Math.random() * 90 + 30
-            });
-        }
-    }
-    
-    /**
-     * Create death particles
-     */
-    createDeathParticles() {
-        const centerX = this.playerPosition.x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = this.playerPosition.y * TILE_SIZE + TILE_SIZE / 2;
-        
-        // Create explosion effect
-        for (let i = 0; i < 50; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 4 + 1;
-            
-            this.particles.push({
-                x: centerX,
-                y: centerY,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                color: `hsl(${Math.random() * 60}, 100%, 50%)`,
-                size: Math.random() * 4 + 2,
-                life: Math.random() * 60 + 20
-            });
-        }
-    }
-    
-    /**
-     * Update all particles
-     */
-    updateParticles() {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const particle = this.particles[i];
-            
-            // Update position
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-            
-            // Apply gravity and friction based on particle type
-            const gravity = particle.gravity || 0.1;
-            particle.vy += gravity;
-            
-            // Different behavior for different particle types
-            if (particle.type === 'debris') {
-                // Debris bounces and loses energy
-                particle.vx *= 0.95;
-                particle.vy *= 0.95;
-            } else {
-                // Default particle behavior
-                particle.vx *= 0.97;
-                particle.vy *= 0.97;
-            }
-            
-            // Reduce life
-            particle.life--;
-            
-            // Remove dead particles
-            if (particle.life <= 0) {
-                this.particles.splice(i, 1);
-            }
-        }
-    }
-    
-    /**
-     * Draw all particles
-     */
-    drawParticles() {
-        for (const particle of this.particles) {
-            // Calculate opacity based on remaining life
-            const baseOpacity = particle.opacity !== undefined ? particle.opacity : 1;
-            const opacity = baseOpacity * (particle.life / (particle.type === 'dust' ? 90 : 60));
-            
-            this.ctx.fillStyle = particle.color;
-            this.ctx.globalAlpha = opacity;
-            
-            // Draw the particle based on its type
-            if (particle.type === 'dust') {
-                // Dust is more cloud-like
-                this.ctx.beginPath();
-                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                this.ctx.fill();
-            } else if (particle.type === 'debris') {
-                // Debris can be small squares or triangles
-                if (Math.random() > 0.5) {
-                    // Square
-                    this.ctx.fillRect(
-                        particle.x - particle.size/2,
-                        particle.y - particle.size/2,
-                        particle.size,
-                        particle.size
-                    );
-                } else {
-                    // Triangle
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(particle.x, particle.y - particle.size/2);
-                    this.ctx.lineTo(particle.x + particle.size/2, particle.y + particle.size/2);
-                    this.ctx.lineTo(particle.x - particle.size/2, particle.y + particle.size/2);
-                    this.ctx.closePath();
-                    this.ctx.fill();
-                }
-            } else {
-                // Default particle shape is circle
-                this.ctx.beginPath();
-                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-        }
-        
-        // Reset global alpha
-        this.ctx.globalAlpha = 1;
-    }
-    
-    /**
-     * Apply screen shake effect to the context
-     */
-    applyScreenShake() {
-        if (this.screenShake <= 0) return;
-        
-        // Calculate shake offset
-        const intensity = this.screenShakeIntensity * (this.screenShake / 20);
-        const shakeX = (Math.random() * 2 - 1) * intensity;
-        const shakeY = (Math.random() * 2 - 1) * intensity;
-        
-        // Apply the shake
-        this.ctx.save();
-        this.ctx.translate(shakeX, shakeY);
-    }
-    
-    /**
-     * Render the game state
-     */
-    render() {
-        // Clear the canvas
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw background pattern
-        this.ctx.fillStyle = this.backgroundPattern;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Apply screen shake
-        this.applyScreenShake();
-        
-        // Draw a subtle ambient lighting effect
-        const ambientCycle = Math.sin(this.gameTime / 60) * 0.1 + 0.9;
-        this.ctx.fillStyle = `rgba(20, 20, 40, ${0.1 * ambientCycle})`;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Render grid with fading edges
-        for (let y = 0; y < GRID_HEIGHT; y++) {
-            for (let x = 0; x < GRID_WIDTH; x++) {
-                const element = this.grid?.[y]?.[x];
-                
-                // Skip empty or undefined cells
-                if (!element || element === ELEMENT_TYPES.EMPTY) continue;
-                
-                // Special handling for exit when open
-                if (element === ELEMENT_TYPES.EXIT && this.exitOpen) {
-                    // Animated exit gets drawn separately
-                    continue;
-                }
-                
-                // Special handling for player
-                if (element === ELEMENT_TYPES.PLAYER) {
-                    // Get animation frame 
-                    const frameOffset = this.playerAnimationFrame * 0.25;
-                    const directionOffset = {
-                        'UP': 0.25,
-                        'RIGHT': 0.5,
-                        'DOWN': 0.75,
-                        'LEFT': 0
-                    }[this.playerDirection] || 0;
-                    
-                    // Draw player with animation
-                    this.ctx.save();
-                    this.ctx.translate(
-                        x * TILE_SIZE + TILE_SIZE/2,
-                        y * TILE_SIZE + TILE_SIZE/2
-                    );
-                    
-                    // Add slight bobbing motion
-                    const bob = Math.sin(this.gameTime / 10) * 2;
-                    this.ctx.translate(0, bob);
-                    
-                    this.ctx.rotate(directionOffset * Math.PI * 2);
-                    this.ctx.drawImage(
-                        this.sprites[element],
-                        -TILE_SIZE/2,
-                        -TILE_SIZE/2,
-                        TILE_SIZE,
-                        TILE_SIZE
-                    );
-                    this.ctx.restore();
-                    continue;
-                }
-                
-                // Special handling for diamonds to add sparkle
-                if (element === ELEMENT_TYPES.DIAMOND) {
-                    const sparkleIntensity = (Math.sin(this.gameTime / 10 + x * 0.5 + y * 0.7) + 1) / 2;
-                    
-                    // Draw the diamond
-                    this.ctx.drawImage(
-                        this.sprites[element],
-                        x * TILE_SIZE,
-                        y * TILE_SIZE,
-                        TILE_SIZE,
-                        TILE_SIZE
-                    );
-                    
-                    // Add sparkle overlay
-                    this.ctx.fillStyle = `rgba(255, 255, 255, ${sparkleIntensity * 0.3})`;
-                    this.ctx.fillRect(
-                        x * TILE_SIZE + TILE_SIZE/4,
-                        y * TILE_SIZE + TILE_SIZE/4,
-                        TILE_SIZE/2,
-                        TILE_SIZE/2
-                    );
-                    continue;
-                }
-                
-                // Regular element rendering
-                this.ctx.drawImage(
-                    this.sprites[element],
-                    x * TILE_SIZE,
-                    y * TILE_SIZE,
-                    TILE_SIZE,
-                    TILE_SIZE
-                );
-                
-                // Add dynamic lighting to boulders with protection against NaN values
-                if (element === ELEMENT_TYPES.BOULDER) {
-                    try {
-                        const lightAngle = (this.gameTime || 0) / 100;
-                        const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
-                        const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
-                        
-                        // Check if all values are finite
-                        if (isFinite(x * TILE_SIZE + gradX) && 
-                            isFinite(y * TILE_SIZE + gradY) &&
-                            isFinite(TILE_SIZE/8) &&
-                            isFinite(x * TILE_SIZE + TILE_SIZE/2) &&
-                            isFinite(y * TILE_SIZE + TILE_SIZE/2) &&
-                            isFinite(TILE_SIZE)) {
-                            
-                            const gradient = this.ctx.createRadialGradient(
-                                x * TILE_SIZE + gradX,
-                                y * TILE_SIZE + gradY,
-                                TILE_SIZE/8,
-                                x * TILE_SIZE + TILE_SIZE/2,
-                                y * TILE_SIZE + TILE_SIZE/2,
-                                TILE_SIZE
-                            );
-                            
-                            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
-                            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                            
-                            this.ctx.fillStyle = gradient;
-                            this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                        }
-                    } catch (error) {
-                        console.warn('Could not render boulder lighting effect', error);
-                    }
-                }
-            }
-        }
-        
-        // Handle exit animation when open
-        if (this.exitOpen) {
-            const exitX = this.exitPosition.x * TILE_SIZE;
-            const exitY = this.exitPosition.y * TILE_SIZE;
-            
-            // Add pulsing effect to the exit
-            const pulseScale = 1 + 0.15 * Math.sin(Date.now() / 150);
-            const rotationAngle = Math.sin(Date.now() / 1000) * 0.1;
-            
-            this.ctx.save();
-            this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
-            this.ctx.scale(pulseScale, pulseScale);
-            this.ctx.rotate(rotationAngle);
-            
-            // Add glowing effect
-            const glowSize = 1.5 + 0.3 * Math.sin(Date.now() / 300);
-            this.ctx.globalAlpha = 0.4;
-            this.ctx.drawImage(
-                this.sprites[ELEMENT_TYPES.EXIT],
-                -TILE_SIZE / 2 * glowSize,
-                -TILE_SIZE / 2 * glowSize,
-                TILE_SIZE * glowSize,
-                TILE_SIZE * glowSize
-            );
-            
-            // Draw the actual exit
-            this.ctx.globalAlpha = 1.0;
-            this.ctx.drawImage(
-                this.sprites[ELEMENT_TYPES.EXIT],
-                -TILE_SIZE / 2,
-                -TILE_SIZE / 2,
-                TILE_SIZE,
-                TILE_SIZE
-            );
-            this.ctx.restore();
-        }
-        
-        // Draw particles
-        this.drawParticles();
-        
-        // Reset any transformations from screen shake
-        if (this.screenShake > 0) {
-            this.ctx.restore();
-        }
-    }
-    
-    /**
-     * Draw the title screen
-     */
-    drawTitleScreen() {
-        // Clear the canvas
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw background pattern
-        this.ctx.fillStyle = this.backgroundPattern;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw title text
-        this.ctx.font = 'bold 36px Arial, sans-serif';
-        this.ctx.fillStyle = '#ffcc00';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 3);
-        
-        // Draw instructions
-        this.ctx.font = '22px Arial, sans-serif';
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Collect diamonds and reach the exit!', this.canvas.width / 2, this.canvas.height / 2);
-        
-        this.ctx.font = '18px Arial, sans-serif';
-        this.ctx.fillText('Arrow keys or WASD to move', this.canvas.width / 2, this.canvas.height / 2 + 40);
-        this.ctx.fillText('Collect the required diamonds to open the exit', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Avoid falling rocks and enemies', this.canvas.width / 2, this.canvas.height / 2 + 100);
-        
-        // Draw some decorative elements
-        this.drawSampleElements();
-        
-        // Create title screen particles
-        if (Math.random() < 0.05 && this.particles.length < 50) {
-            const x = Math.random() * this.canvas.width;
-            const y = this.canvas.height / 3 - 30;
-            
-            this.particles.push({
-                x: x,
-                y: y,
-                vx: (Math.random() - 0.5) * 1,
-                vy: Math.random() * 1 + 0.5,
-                color: '#ffcc00',
-                size: Math.random() * 3 + 1,
-                life: 100
-            });
-        }
-        
-        // Update and draw particles
-        this.updateParticles();
-        this.drawParticles();
-        
-        // Continue animation if not started
-        if (!this.isRunning) {
-            requestAnimationFrame(() => this.drawTitleScreen());
-        }
-    }
-    
-    /**
-     * Draw sample game elements on the title screen
-     */
-    drawSampleElements() {
-        // Draw some sample diamonds and boulders around the edges
-        for (let i = 0; i < 8; i++) {
-            const x = (i % 4) * (this.canvas.width / 4) + TILE_SIZE;
-            
-            // Diamonds at the top
-            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.DIAMOND], 
-                x, TILE_SIZE, 
-                TILE_SIZE, TILE_SIZE);
-            
-            // Boulders at the bottom
-            this.ctx.drawImage(this.sprites[ELEMENT_TYPES.BOULDER], 
-                x, this.canvas.height - TILE_SIZE * 2, 
-                TILE_SIZE, TILE_SIZE);
-        }
-        
-        // Draw animated player
-        const playerX = this.canvas.width / 2 - TILE_SIZE / 2;
-        const playerY = this.canvas.height - TILE_SIZE * 4;
-        this.ctx.drawImage(this.sprites[ELEMENT_TYPES.PLAYER], 
-            playerX, playerY, 
-            TILE_SIZE, TILE_SIZE);
-    }
-    
-    /**
-     * Show a message on screen
+     * Show a message on screen - renamed to avoid any method conflicts
      * @param {string} title - The message title
      * @param {string} subtitle - The message subtitle (optional)
      */
-    showMessage(title, subtitle) {
+    renderMessage(title, subtitle) {
+        if (!this.ctx) return; // Safety check
+        
         // Draw message overlay
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         
