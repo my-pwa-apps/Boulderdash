@@ -384,6 +384,7 @@ class Game {
                     // If a falling object lands on the player's position, handle crushing
                     if (x === this.playerPosition.x && y + 1 === this.playerPosition.y) {
                         this.sound.play('crush');
+                        this.createCrashAnimation(this.playerPosition.x, this.playerPosition.y);
                         this.handlePlayerDeath("Crushed by a falling object!");
                         return;
                     }
