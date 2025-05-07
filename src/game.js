@@ -25,6 +25,16 @@ class Game {
         this.canvas.width = GRID_WIDTH * TILE_SIZE;
         this.canvas.height = GRID_HEIGHT * TILE_SIZE;
         
+        // Add visual effect properties first so they're available
+        this.screenShake = 0;
+        this.screenShakeIntensity = 0;
+        this.gameTime = 0; // For various timing effects
+        this.playerAnimationFrame = 0;
+        this.playerAnimationCounter = 0;
+        
+        // Background pattern needs to be created after canvas context is available
+        this.backgroundPattern = this.createBackgroundPattern();
+        
         // DOM elements
         this.scoreElement = document.getElementById('score');
         this.diamondsElement = document.getElementById('diamonds');
@@ -101,16 +111,8 @@ class Game {
             }
         });
         
-        // Draw title screen
-        this.drawTitleScreen();
-        
-        // Add visual effect properties
-        this.screenShake = 0;
-        this.screenShakeIntensity = 0;
-        this.backgroundPattern = this.createBackgroundPattern();
-        this.playerAnimationFrame = 0;
-        this.playerAnimationCounter = 0;
-        this.gameTime = 0; // For various timing effects
+        // Initialize the title screen (moved after drawTitleScreen is defined)
+        setTimeout(() => this.drawTitleScreen(), 0);
     }
     
     /**
@@ -998,10 +1000,10 @@ class Game {
         // Render grid with fading edges
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
-                const element = this.grid[y][x];
+                const element = this.grid?.[y]?.[x];
                 
-                // Skip empty cells
-                if (element === ELEMENT_TYPES.EMPTY) continue;
+                // Skip empty or undefined cells
+                if (!element || element === ELEMENT_TYPES.EMPTY) continue;
                 
                 // Special handling for exit when open
                 if (element === ELEMENT_TYPES.EXIT && this.exitOpen) {
@@ -1009,7 +1011,7 @@ class Game {
                     continue;
                 }
                 
-                // Special handling for player to animate based on direction
+                // Special handling for player
                 if (element === ELEMENT_TYPES.PLAYER) {
                     // Get animation frame 
                     const frameOffset = this.playerAnimationFrame * 0.25;
@@ -1076,26 +1078,39 @@ class Game {
                     TILE_SIZE
                 );
                 
-                // Add dynamic lighting to boulders
+                // Add dynamic lighting to boulders with protection against NaN values
                 if (element === ELEMENT_TYPES.BOULDER) {
-                    const lightAngle = this.gameTime / 100;
-                    const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
-                    const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
-                    
-                    const gradient = this.ctx.createRadialGradient(
-                        x * TILE_SIZE + gradX,
-                        y * TILE_SIZE + gradY,
-                        TILE_SIZE/8,
-                        x * TILE_SIZE + TILE_SIZE/2,
-                        y * TILE_SIZE + TILE_SIZE/2,
-                        TILE_SIZE
-                    );
-                    
-                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
-                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                    
-                    this.ctx.fillStyle = gradient;
-                    this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    try {
+                        const lightAngle = (this.gameTime || 0) / 100;
+                        const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+                        const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+                        
+                        // Check if all values are finite
+                        if (isFinite(x * TILE_SIZE + gradX) && 
+                            isFinite(y * TILE_SIZE + gradY) &&
+                            isFinite(TILE_SIZE/8) &&
+                            isFinite(x * TILE_SIZE + TILE_SIZE/2) &&
+                            isFinite(y * TILE_SIZE + TILE_SIZE/2) &&
+                            isFinite(TILE_SIZE)) {
+                            
+                            const gradient = this.ctx.createRadialGradient(
+                                x * TILE_SIZE + gradX,
+                                y * TILE_SIZE + gradY,
+                                TILE_SIZE/8,
+                                x * TILE_SIZE + TILE_SIZE/2,
+                                y * TILE_SIZE + TILE_SIZE/2,
+                                TILE_SIZE
+                            );
+                            
+                            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+                            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                            
+                            this.ctx.fillStyle = gradient;
+                            this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        }
+                    } catch (error) {
+                        console.warn('Could not render boulder lighting effect', error);
+                    }
                 }
             }
         }
