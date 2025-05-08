@@ -577,6 +577,168 @@ class Game {
     }
     
     /**
+     * Render the game state
+     */
+    render() {
+        // Clear the canvas
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Draw background pattern
+        this.ctx.fillStyle = this.backgroundPattern;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Apply screen shake
+        this.applyScreenShake();
+
+        // Draw a subtle ambient lighting effect
+        const ambientCycle = Math.sin(this.gameTime / 60) * 0.1 + 0.9;
+        this.ctx.fillStyle = `rgba(20, 20, 40, ${0.1 * ambientCycle})`;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Render grid with fading edges
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                const element = this.grid?.[y]?.[x];
+
+                // Skip empty or undefined cells
+                if (!element || element === ELEMENT_TYPES.EMPTY) continue;
+
+                // Special handling for exit when open
+                if (element === ELEMENT_TYPES.EXIT && this.exitOpen) {
+                    // Animated exit gets drawn separately
+                    continue;
+                }
+
+                // Special handling for player
+                if (element === ELEMENT_TYPES.PLAYER) {
+                    const directionOffset = {
+                        'UP': 0.25,
+                        'RIGHT': 0.5,
+                        'DOWN': 0.75,
+                        'LEFT': 0
+                    }[this.playerDirection] || 0;
+
+                    this.ctx.save();
+                    this.ctx.translate(
+                        x * TILE_SIZE + TILE_SIZE/2,
+                        y * TILE_SIZE + TILE_SIZE/2
+                    );
+                    const bob = Math.sin(this.gameTime / 10) * 2;
+                    this.ctx.translate(0, bob);
+                    this.ctx.rotate(directionOffset * Math.PI * 2);
+                    this.ctx.drawImage(
+                        this.sprites[element],
+                        -TILE_SIZE/2,
+                        -TILE_SIZE/2,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    );
+                    this.ctx.restore();
+                    continue;
+                }
+
+                // Special handling for diamonds to add sparkle
+                if (element === ELEMENT_TYPES.DIAMOND) {
+                    const sparkleIntensity = (Math.sin(this.gameTime / 10 + x * 0.5 + y * 0.7) + 1) / 2;
+                    this.ctx.drawImage(
+                        this.sprites[element],
+                        x * TILE_SIZE,
+                        y * TILE_SIZE,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    );
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${sparkleIntensity * 0.3})`;
+                    this.ctx.fillRect(
+                        x * TILE_SIZE + TILE_SIZE/4,
+                        y * TILE_SIZE + TILE_SIZE/4,
+                        TILE_SIZE/2,
+                        TILE_SIZE/2
+                    );
+                    continue;
+                }
+
+                // Regular element rendering
+                this.ctx.drawImage(
+                    this.sprites[element],
+                    x * TILE_SIZE,
+                    y * TILE_SIZE,
+                    TILE_SIZE,
+                    TILE_SIZE
+                );
+
+                // Add dynamic lighting to boulders
+                if (element === ELEMENT_TYPES.BOULDER) {
+                    try {
+                        const lightAngle = (this.gameTime || 0) / 100;
+                        const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+                        const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+                        if (isFinite(x * TILE_SIZE + gradX) && 
+                            isFinite(y * TILE_SIZE + gradY) &&
+                            isFinite(TILE_SIZE/8) &&
+                            isFinite(x * TILE_SIZE + TILE_SIZE/2) &&
+                            isFinite(y * TILE_SIZE + TILE_SIZE/2) &&
+                            isFinite(TILE_SIZE)) {
+                            const gradient = this.ctx.createRadialGradient(
+                                x * TILE_SIZE + gradX,
+                                y * TILE_SIZE + gradY,
+                                TILE_SIZE/8,
+                                x * TILE_SIZE + TILE_SIZE/2,
+                                y * TILE_SIZE + TILE_SIZE/2,
+                                TILE_SIZE
+                            );
+                            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+                            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                            this.ctx.fillStyle = gradient;
+                            this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        }
+                    } catch (error) {
+                        console.warn('Could not render boulder lighting effect', error);
+                    }
+                }
+            }
+        }
+
+        // Handle exit animation when open
+        if (this.exitOpen) {
+            const exitX = this.exitPosition.x * TILE_SIZE;
+            const exitY = this.exitPosition.y * TILE_SIZE;
+            const pulseScale = 1 + 0.15 * Math.sin(Date.now() / 150);
+            const rotationAngle = Math.sin(Date.now() / 1000) * 0.1;
+            this.ctx.save();
+            this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
+            this.ctx.scale(pulseScale, pulseScale);
+            this.ctx.rotate(rotationAngle);
+            const glowSize = 1.5 + 0.3 * Math.sin(Date.now() / 300);
+            this.ctx.globalAlpha = 0.4;
+            this.ctx.drawImage(
+                this.sprites[ELEMENT_TYPES.EXIT],
+                -TILE_SIZE / 2 * glowSize,
+                -TILE_SIZE / 2 * glowSize,
+                TILE_SIZE * glowSize,
+                TILE_SIZE * glowSize
+            );
+            this.ctx.globalAlpha = 1.0;
+            this.ctx.drawImage(
+                this.sprites[ELEMENT_TYPES.EXIT],
+                -TILE_SIZE / 2,
+                -TILE_SIZE / 2,
+                TILE_SIZE,
+                TILE_SIZE
+            );
+            this.ctx.restore();
+        }
+
+        // Draw particles
+        this.drawParticles();
+
+        // Reset any transformations from screen shake
+        if (this.screenShake > 0) {
+            this.ctx.restore();
+        }
+    }
+    
+    /**
      * Update all particles
      */
     updateParticles() {
