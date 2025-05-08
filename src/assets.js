@@ -504,19 +504,4 @@ function drawEnemy(ctx, color) {
     ctx.fill();
 }
 
-/**
- * Generate all game assets
- * @returns {Object} - Object containing all sprite canvases
- */
-export function generateAssets() {
-    const assets = {};
-    
-    // Generate sprites for each element type
-    for (const type in ELEMENT_TYPES) {
-        const elementType = ELEMENT_TYPES[type];
-        const color = COLORS[type];
-        assets[elementType] = generateSprite(color, elementType);
-    }
-    
-    return assets;
-}
+
