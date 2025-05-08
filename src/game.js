@@ -1031,6 +1031,218 @@ class Game {
             this.ctx.fillText(subtitle, this.canvas.width / 2, this.canvas.height / 2 + 30);
         }
     }
+    
+    /**
+     * Draw all particles
+     */
+    drawParticles() {
+        for (const particle of this.particles) {
+            // Calculate opacity based on remaining life
+            const baseOpacity = particle.opacity !== undefined ? particle.opacity : 1;
+            const opacity = baseOpacity * (particle.life / (particle.type === 'dust' ? 90 : 60));
+            
+            this.ctx.fillStyle = particle.color;
+            this.ctx.globalAlpha = opacity;
+            
+            // Draw the particle based on its type
+            if (particle.type === 'dust') {
+                // Dust is more cloud-like
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            } else if (particle.type === 'debris') {
+                // Debris can be small squares or triangles
+                if (Math.random() > 0.5) {
+                    // Square
+                    this.ctx.fillRect(
+                        particle.x - particle.size/2,
+                        particle.y - particle.size/2,
+                        particle.size,
+                        particle.size
+                    );
+                } else {
+                    // Triangle
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(particle.x, particle.y - particle.size/2);
+                    this.ctx.lineTo(particle.x + particle.size/2, particle.y + particle.size/2);
+                    this.ctx.lineTo(particle.x - particle.size/2, particle.y + particle.size/2);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                }
+            } else {
+                // Default particle shape is circle
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        }
+        
+        // Reset global alpha
+        this.ctx.globalAlpha = 1;
+    }
+    
+    /**
+     * Apply screen shake effect to the context
+     */
+    applyScreenShake() {
+        if (this.screenShake <= 0) return;
+        
+        // Calculate shake offset
+        const intensity = this.screenShakeIntensity * (this.screenShake / 20);
+        const shakeX = (Math.random() * 2 - 1) * intensity;
+        const shakeY = (Math.random() * 2 - 1) * intensity;
+        
+        // Apply the shake
+        this.ctx.save();
+        this.ctx.translate(shakeX, shakeY);
+    }
+    
+    /**
+     * Create a collection of sample elements for the title screen
+     */
+    drawSampleElements() {
+        // Draw some sample diamonds and boulders around the edges
+        for (let i = 0; i < 8; i++) {
+            const x = (i % 4) * (this.canvas.width / 4) + TILE_SIZE;
+            
+            // Draw diamonds at the top if sprites are loaded
+            if (this.sprites && this.sprites[ELEMENT_TYPES.DIAMOND]) {
+                this.ctx.drawImage(
+                    this.sprites[ELEMENT_TYPES.DIAMOND], 
+                    x, TILE_SIZE, 
+                    TILE_SIZE, TILE_SIZE
+                );
+            }
+            
+            // Draw boulders at the bottom if sprites are loaded
+            if (this.sprites && this.sprites[ELEMENT_TYPES.BOULDER]) {
+                this.ctx.drawImage(
+                    this.sprites[ELEMENT_TYPES.BOULDER], 
+                    x, this.canvas.height - TILE_SIZE * 2, 
+                    TILE_SIZE, TILE_SIZE
+                );
+            }
+        }
+        
+        // Draw animated player if sprites are loaded
+        if (this.sprites && this.sprites[ELEMENT_TYPES.PLAYER]) {
+            const playerX = this.canvas.width / 2 - TILE_SIZE / 2;
+            const playerY = this.canvas.height - TILE_SIZE * 4;
+            this.ctx.drawImage(
+                this.sprites[ELEMENT_TYPES.PLAYER], 
+                playerX, playerY, 
+                TILE_SIZE, TILE_SIZE
+            );
+        }
+    }
+    
+    /**
+     * Create collection particles
+     */
+    createCollectParticles(x, y) {
+        const centerX = x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Create sparkles
+        for (let i = 0; i < 10; i++) {
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: (Math.random() - 0.5) * 3,
+                vy: (Math.random() - 0.5) * 3,
+                color: '#00FFFF',
+                size: Math.random() * 3 + 1,
+                life: 30
+            });
+        }
+    }
+    
+    /**
+     * Create particles for exit appearance
+     */
+    createExitParticles() {
+        const centerX = this.exitPosition.x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = this.exitPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Create sparkles around exit
+        for (let i = 0; i < 40; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 30 + 10;
+            
+            this.particles.push({
+                x: centerX + Math.cos(angle) * distance,
+                y: centerY + Math.sin(angle) * distance,
+                vx: Math.cos(angle) * 2,
+                vy: Math.sin(angle) * 2,
+                color: '#FF00FF',
+                size: Math.random() * 4 + 2,
+                life: 60
+            });
+        }
+    }
+    
+    /**
+     * Create particles for celebration effects
+     */
+    createCelebrationParticles() {
+        for (let i = 0; i < 100; i++) {
+            this.particles.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height,
+                vx: (Math.random() - 0.5) * 6,
+                vy: (Math.random() - 0.5) * 6,
+                color: `hsl(${Math.random() * 360}, 100%, 60%)`,
+                size: Math.random() * 5 + 2,
+                life: Math.random() * 90 + 30
+            });
+        }
+    }
+    
+    /**
+     * Create death effect particles
+     */
+    createDeathParticles() {
+        const centerX = this.playerPosition.x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = this.playerPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Create explosion effect
+        for (let i = 0; i < 50; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 4 + 1;
+            
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: `hsl(${Math.random() * 60}, 100%, 50%)`,
+                size: Math.random() * 4 + 2,
+                life: Math.random() * 60 + 20
+            });
+        }
+    }
+    
+    /**
+     * Handle completion of the game
+     */
+    gameWon() {
+        this.isRunning = false;
+        this.gameOver = true;
+        
+        // Play level complete sound
+        this.sound.play('complete');
+        
+        this.renderMessage(`Congratulations!`, `You've won with ${this.score} points!`);
+        
+        // Create celebration particles
+        this.createCelebrationParticles();
+        
+        // Stop the timer
+        this.stopTimer();
+        
+        // Show restart button
+        this.restartButton.style.display = 'inline-block';
+    }
 }
 
 // Start the game when the DOM is loaded
