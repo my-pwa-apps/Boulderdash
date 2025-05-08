@@ -815,6 +815,31 @@ class Game {
         // Only run physics every few frames for performance
         this.physicsStep++;
         if (this.physicsStep >= 3) {
+            // Track objects that need to fall in the next update 
+            let objectsToFall = new Set();
+
+            // Scan the grid for boulders and diamonds that should fall
+            for (let y = GRID_HEIGHT - 2; y >= 0; y--) { // Start from second-to-bottom row
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    const element = this.grid[y][x];
+                    if ((element === ELEMENT_TYPES.BOULDER || element === ELEMENT_TYPES.DIAMOND) && 
+                        this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
+                        // Add this position to falling objects
+                        objectsToFall.add([x, y]);
+                    }
+                }
+            }
+
+            // Add these objects to the physics engine's falling objects
+            if (objectsToFall.size > 0) {
+                if (!this.physics.fallingObjects) {
+                    this.physics.fallingObjects = new Set();
+                }
+                objectsToFall.forEach(pos => {
+                    this.physics.fallingObjects.add(pos);
+                });
+            }
+
             const physicsChanged = this.physics.update();
 
             // Check for falling objects and their interaction with the player
@@ -900,6 +925,10 @@ class Game {
             this.playerPosition = { x: 2, y: 2 }; // Set fallback position
         }
 
+        // Store the old position to check for empty spaces later
+        const oldX = this.playerPosition.x;
+        const oldY = this.playerPosition.y;
+
         const moveResult = this.physics.movePlayer(
             this.playerPosition.x,
             this.playerPosition.y,
@@ -920,6 +949,22 @@ class Game {
             this.grid[this.playerPosition.y][this.playerPosition.x] = ELEMENT_TYPES.PLAYER;
 
             console.log(`Player moved to: ${this.playerPosition.x}, ${this.playerPosition.y}`);
+
+            // Check the previous position - if it's now empty, check objects above it
+            // This ensures boulders and diamonds fall when the path beneath is cleared
+            if (oldY > 0) {  // Make sure we're not at the top of the grid
+                const aboveElement = this.grid[oldY - 1][oldX];
+                if (aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) {
+                    // Mark this object for falling in the next physics update
+                    if (!this.physics.fallingObjects) {
+                        this.physics.fallingObjects = new Set();
+                    }
+                    this.physics.fallingObjects.add([oldX, oldY - 1]);
+                    
+                    // Force a physics update immediately to start the falling motion
+                    this.physicsStep = 3;
+                }
+            }
 
             // Play movement sound
             this.sound.play('move');
