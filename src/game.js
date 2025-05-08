@@ -375,49 +375,63 @@ class Game {
     }
     
     /**
-     * Main game loop
+     * Main game loop with optimized rendering
      */
     gameLoop() {
         if (!this.isRunning) return;
         
+        const now = performance.now();
+        const deltaTime = now - (this.lastUpdateTime || now);
+        this.lastUpdateTime = now;
+        
+        // Cap delta time to avoid large jumps after tab switch
+        const cappedDelta = Math.min(deltaTime, 33); // Max ~30 FPS worth of updates
+        
         // Update game time
-        this.gameTime++;
+        this.gameTime += cappedDelta / 16; // Normalize time increment
         
-        // Update physics
-        this.updatePhysics();
+        // Update physics at a fixed rate to ensure consistent behavior
+        this.physicsAccumulator = (this.physicsAccumulator || 0) + cappedDelta;
+        const physicsStep = 50; // ms between physics updates
         
-        // Update enemies periodically
-        this.enemyMoveCounter++;
-        if (this.enemyMoveCounter >= 20) {
+        // Run physics updates at fixed intervals
+        while (this.physicsAccumulator >= physicsStep) {
+            this.updatePhysics();
+            this.physicsAccumulator -= physicsStep;
+        }
+        
+        // Update enemies periodically with time-based movement
+        this.enemyMoveCounter += cappedDelta;
+        if (this.enemyMoveCounter >= 400) { // 400ms between enemy updates
             this.updateEnemies();
             this.enemyMoveCounter = 0;
         }
         
-        // Update animation counter
-        this.animationCounter++;
-        if (this.animationCounter > 60) {
+        // Update animations based on elapsed time
+        this.animationCounter += cappedDelta;
+        if (this.animationCounter > 1000) { // 1 second animation cycle
             this.animationCounter = 0;
         }
         
         // Update player animation
-        this.playerAnimationCounter++;
-        if (this.playerAnimationCounter > 10) {
+        this.playerAnimationCounter += cappedDelta;
+        if (this.playerAnimationCounter > 150) { // 150ms per frame
             this.playerAnimationCounter = 0;
             this.playerAnimationFrame = (this.playerAnimationFrame + 1) % 4;
         }
         
-        // Update screen shake effect
+        // Update screen shake with time decay
         if (this.screenShake > 0) {
-            this.screenShake--;
+            this.screenShake -= cappedDelta / 20; // Decay based on time
         }
         
-        // Update particles
-        this.updateParticles();
+        // Update particles with time-based movement
+        this.updateParticles(cappedDelta / 16);
         
         // Check for player crushing
         this.checkPlayerStatus();
         
-        // Render the game
+        // Only render at display refresh rate
         this.render();
         
         // Request next frame
@@ -577,161 +591,162 @@ class Game {
     }
     
     /**
-     * Render the game state
+     * Optimized physics update
      */
-    render() {
-        // Clear the canvas
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    updatePhysics() {
+        // Track objects that need to fall in the next update
+        const objectsToFall = new Set();
 
-        // Draw background pattern
-        this.ctx.fillStyle = this.backgroundPattern;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Apply screen shake
-        this.applyScreenShake();
-
-        // Draw a subtle ambient lighting effect
-        const ambientCycle = Math.sin(this.gameTime / 60) * 0.1 + 0.9;
-        this.ctx.fillStyle = `rgba(20, 20, 40, ${0.1 * ambientCycle})`;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Render grid with fading edges
-        for (let y = 0; y < GRID_HEIGHT; y++) {
+        // Only scan where it's needed - start from second-to-bottom row
+        for (let y = GRID_HEIGHT - 2; y >= 0; y--) {
             for (let x = 0; x < GRID_WIDTH; x++) {
-                const element = this.grid?.[y]?.[x];
-
-                // Skip empty or undefined cells
-                if (!element || element === ELEMENT_TYPES.EMPTY) continue;
-
-                // Special handling for exit when open
-                if (element === ELEMENT_TYPES.EXIT && this.exitOpen) {
-                    // Animated exit gets drawn separately
-                    continue;
-                }
-
-                // Special handling for player
-                if (element === ELEMENT_TYPES.PLAYER) {
-                    const directionOffset = {
-                        'UP': 0.25,
-                        'RIGHT': 0.5,
-                        'DOWN': 0.75,
-                        'LEFT': 0
-                    }[this.playerDirection] || 0;
-
-                    this.ctx.save();
-                    this.ctx.translate(
-                        x * TILE_SIZE + TILE_SIZE/2,
-                        y * TILE_SIZE + TILE_SIZE/2
-                    );
-                    const bob = Math.sin(this.gameTime / 10) * 2;
-                    this.ctx.translate(0, bob);
-                    this.ctx.rotate(directionOffset * Math.PI * 2);
-                    this.ctx.drawImage(
-                        this.sprites[element],
-                        -TILE_SIZE/2,
-                        -TILE_SIZE/2,
-                        TILE_SIZE,
-                        TILE_SIZE
-                    );
-                    this.ctx.restore();
-                    continue;
-                }
-
-                // Special handling for diamonds to add sparkle
-                if (element === ELEMENT_TYPES.DIAMOND) {
-                    const sparkleIntensity = (Math.sin(this.gameTime / 10 + x * 0.5 + y * 0.7) + 1) / 2;
-                    this.ctx.drawImage(
-                        this.sprites[element],
-                        x * TILE_SIZE,
-                        y * TILE_SIZE,
-                        TILE_SIZE,
-                        TILE_SIZE
-                    );
-                    this.ctx.fillStyle = `rgba(255, 255, 255, ${sparkleIntensity * 0.3})`;
-                    this.ctx.fillRect(
-                        x * TILE_SIZE + TILE_SIZE/4,
-                        y * TILE_SIZE + TILE_SIZE/4,
-                        TILE_SIZE/2,
-                        TILE_SIZE/2
-                    );
-                    continue;
-                }
-
-                // Regular element rendering
-                this.ctx.drawImage(
-                    this.sprites[element],
-                    x * TILE_SIZE,
-                    y * TILE_SIZE,
-                    TILE_SIZE,
-                    TILE_SIZE
-                );
-
-                // Add dynamic lighting to boulders
-                if (element === ELEMENT_TYPES.BOULDER) {
-                    try {
-                        const lightAngle = (this.gameTime || 0) / 100;
-                        const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
-                        const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
-                        if (isFinite(x * TILE_SIZE + gradX) && 
-                            isFinite(y * TILE_SIZE + gradY) &&
-                            isFinite(TILE_SIZE/8) &&
-                            isFinite(x * TILE_SIZE + TILE_SIZE/2) &&
-                            isFinite(y * TILE_SIZE + TILE_SIZE/2) &&
-                            isFinite(TILE_SIZE)) {
-                            const gradient = this.ctx.createRadialGradient(
-                                x * TILE_SIZE + gradX,
-                                y * TILE_SIZE + gradY,
-                                TILE_SIZE/8,
-                                x * TILE_SIZE + TILE_SIZE/2,
-                                y * TILE_SIZE + TILE_SIZE/2,
-                                TILE_SIZE
-                            );
-                            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
-                            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                            this.ctx.fillStyle = gradient;
-                            this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                        }
-                    } catch (error) {
-                        console.warn('Could not render boulder lighting effect', error);
-                    }
+                const element = this.grid[y][x];
+                // Only check boulders and diamonds (optimization)
+                if ((element === ELEMENT_TYPES.BOULDER || element === ELEMENT_TYPES.DIAMOND) && 
+                    this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
+                    // Quick add to set as string key for better performance
+                    objectsToFall.add(`${x},${y}`);
                 }
             }
         }
 
-        // Handle exit animation when open
-        if (this.exitOpen) {
-            const exitX = this.exitPosition.x * TILE_SIZE;
-            const exitY = this.exitPosition.y * TILE_SIZE;
-            const pulseScale = 1 + 0.15 * Math.sin(Date.now() / 150);
-            const rotationAngle = Math.sin(Date.now() / 1000) * 0.1;
-            this.ctx.save();
-            this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
-            this.ctx.scale(pulseScale, pulseScale);
-            this.ctx.rotate(rotationAngle);
-            const glowSize = 1.5 + 0.3 * Math.sin(Date.now() / 300);
-            this.ctx.globalAlpha = 0.4;
-            this.ctx.drawImage(
-                this.sprites[ELEMENT_TYPES.EXIT],
-                -TILE_SIZE / 2 * glowSize,
-                -TILE_SIZE / 2 * glowSize,
-                TILE_SIZE * glowSize,
-                TILE_SIZE * glowSize
-            );
-            this.ctx.globalAlpha = 1.0;
-            this.ctx.drawImage(
-                this.sprites[ELEMENT_TYPES.EXIT],
-                -TILE_SIZE / 2,
-                -TILE_SIZE / 2,
-                TILE_SIZE,
-                TILE_SIZE
-            );
-            this.ctx.restore();
+        // Batch update physics objects
+        let physicsChanged = false;
+        if (objectsToFall.size > 0) {
+            // Convert string keys back to array coordinates
+            const fallingCoords = Array.from(objectsToFall).map(pos => {
+                const [x, y] = pos.split(',').map(Number);
+                return [x, y];
+            });
+            
+            // Add all at once to physics engine
+            physicsChanged = this.physics.updateFallingObjects(fallingCoords);
+        } else {
+            physicsChanged = this.physics.update();
         }
 
+        // Check for falling objects and their interaction with the player
+        if (physicsChanged && this.physics.fallingObjects.size > 0) {
+            // Convert string keys to coordinates for checking
+            for (const posKey of this.physics.fallingObjects) {
+                const [x, y] = posKey.split(',').map(Number);
+                
+                // If a falling object lands on the player's position, handle crushing
+                if (x === this.playerPosition.x && y + 1 === this.playerPosition.y) {
+                    this.sound.play('crush');
+                    this.createCrashAnimation(this.playerPosition.x, this.playerPosition.y);
+                    this.handlePlayerDeath("Crushed by a falling object!");
+                    return;
+                }
+            }
+
+            // Play fall sound if something moved (throttle for many falling objects)
+            if (!this.lastFallSoundTime || performance.now() - this.lastFallSoundTime > 100) {
+                this.sound.play('fall');
+                this.lastFallSoundTime = performance.now();
+            }
+        }
+    }
+    
+    /**
+     * Time-based particle update
+     * @param {number} deltaFactor - Time-based factor for smooth animation
+     */
+    updateParticles(deltaFactor = 1) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+            
+            // Scale movement by time factor
+            particle.x += particle.vx * deltaFactor;
+            particle.y += particle.vy * deltaFactor;
+            
+            // Apply gravity and friction based on particle type
+            const gravity = (particle.gravity || 0.1) * deltaFactor;
+            particle.vy += gravity;
+            
+            // Different behavior for different particle types with time-based decay
+            if (particle.type === 'debris') {
+                particle.vx *= (0.95 ** deltaFactor);
+                particle.vy *= (0.95 ** deltaFactor);
+            } else {
+                particle.vx *= (0.97 ** deltaFactor);
+                particle.vy *= (0.97 ** deltaFactor);
+            }
+            
+            // Reduce life proportional to time
+            particle.life -= deltaFactor;
+            
+            // Remove dead particles
+            if (particle.life <= 0) {
+                // Optimize by swapping with the last element to avoid array shifts
+                if (i < this.particles.length - 1) {
+                    this.particles[i] = this.particles[this.particles.length - 1];
+                    i++; // Re-check this index in the next iteration
+                }
+                this.particles.pop();
+            }
+        }
+    }
+    
+    /**
+     * Render optimization with layer separation
+     */
+    render() {
+        const ctx = this.ctx;
+        
+        // Clear the canvas
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw background pattern
+        ctx.fillStyle = this.backgroundPattern;
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply screen shake
+        this.applyScreenShake();
+        
+        // Draw a subtle ambient lighting effect
+        const ambientCycle = Math.sin(this.gameTime / 60) * 0.1 + 0.9;
+        ctx.fillStyle = `rgba(20, 20, 40, ${0.1 * ambientCycle})`;
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Pre-categorize elements for more efficient rendering
+        const specialElements = [];
+        const regularElements = [];
+        
+        // Gather elements to render with position data
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                const element = this.grid?.[y]?.[x];
+                
+                // Skip empty cells
+                if (!element || element === ELEMENT_TYPES.EMPTY) continue;
+                
+                // Skip exit when open - handled separately for animation
+                if (element === ELEMENT_TYPES.EXIT && this.exitOpen) continue;
+                
+                if (element === ELEMENT_TYPES.PLAYER || element === ELEMENT_TYPES.DIAMOND) {
+                    specialElements.push({ x, y, type: element });
+                } else {
+                    regularElements.push({ x, y, type: element });
+                }
+            }
+        }
+        
+        // Render regular elements first
+        this.renderElements(regularElements);
+        
+        // Handle exit animation when open
+        if (this.exitOpen) {
+            this.renderExit();
+        }
+        
+        // Render special elements on top
+        this.renderSpecialElements(specialElements);
+        
         // Draw particles
         this.drawParticles();
-
+        
         // Reset any transformations from screen shake
         if (this.screenShake > 0) {
             this.ctx.restore();
@@ -739,558 +754,479 @@ class Game {
     }
     
     /**
-     * Update all particles
+     * Render regular game elements efficiently in batches
+     * @param {Array} elements - Array of element position data
      */
-    updateParticles() {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const particle = this.particles[i];
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-            const gravity = particle.gravity || 0.1;
-            particle.vy += gravity;
-            if (particle.type === 'debris') {
-                particle.vx *= 0.95;
-                particle.vy *= 0.95;
-            } else {
-                particle.vx *= 0.97;
-                particle.vy *= 0.97;
+    renderElements(elements) {
+        // Group elements by type for batch rendering
+        const elementsByType = {};
+        
+        // Group elements
+        for (const elem of elements) {
+            if (!elementsByType[elem.type]) {
+                elementsByType[elem.type] = [];
             }
-            particle.life--;
-            if (particle.life <= 0) {
-                this.particles.splice(i, 1);
+            elementsByType[elem.type].push(elem);
+        }
+        
+        // Render each type in batches
+        for (const type in elementsByType) {
+            const typeElements = elementsByType[type];
+            const sprite = this.sprites[type];
+            
+            // Draw all elements of this type
+            for (const elem of typeElements) {
+                this.ctx.drawImage(
+                    sprite,
+                    elem.x * TILE_SIZE,
+                    elem.y * TILE_SIZE,
+                    TILE_SIZE,
+                    TILE_SIZE
+                );
+                
+                // Special handling for boulders with lighting effects
+                if (parseInt(type) === ELEMENT_TYPES.BOULDER) {
+                    this.addBoulderLighting(elem.x, elem.y);
+                }
             }
         }
     }
     
     /**
-     * Draw the title screen
+     * Add lighting effect to boulder
      */
-    drawTitleScreen() {
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = this.backgroundPattern;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = 'bold 36px Arial, sans-serif';
-        this.ctx.fillStyle = '#ffcc00';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 3);
-        this.ctx.font = '22px Arial, sans-serif';
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Collect diamonds and reach the exit!', this.canvas.width / 2, this.canvas.height / 2);
-        this.ctx.font = '18px Arial, sans-serif';
-        this.ctx.fillText('Arrow keys or WASD to move', this.canvas.width / 2, this.canvas.height / 2 + 40);
-        this.ctx.fillText('Collect the required diamonds to open the exit', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Avoid falling rocks and enemies', this.canvas.width / 2, this.canvas.height / 2 + 100);
-        if (typeof this.drawSampleElements === 'function') {
-            this.drawSampleElements();
-        }
-        if (Math.random() < 0.05 && this.particles.length < 50) {
-            const x = Math.random() * this.canvas.width;
-            const y = this.canvas.height / 3 - 30;
-            this.particles.push({
-                x: x,
-                y: y,
-                vx: (Math.random() - 0.5) * 1,
-                vy: Math.random() * 1 + 0.5,
-                color: '#ffcc00',
-                size: Math.random() * 3 + 1,
-                life: 100
-            });
-        }
-        if (typeof this.updateParticles === 'function') {
-            this.updateParticles();
-        }
-        if (typeof this.drawParticles === 'function') {
-            this.drawParticles();
-        }
-        if (!this.isRunning) {
-            requestAnimationFrame(() => this.drawTitleScreen());
-        }
-    }
-    
-    /**
-     * Update game physics
-     */
-    updatePhysics() {
-        // Only run physics every few frames for performance
-        this.physicsStep++;
-        if (this.physicsStep >= 3) {
-            // Track objects that need to fall in the next update 
-            let objectsToFall = new Set();
-
-            // Scan the grid for boulders and diamonds that should fall
-            for (let y = GRID_HEIGHT - 2; y >= 0; y--) { // Start from second-to-bottom row
-                for (let x = 0; x < GRID_WIDTH; x++) {
-                    const element = this.grid[y][x];
-                    if ((element === ELEMENT_TYPES.BOULDER || element === ELEMENT_TYPES.DIAMOND) && 
-                        this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
-                        // Add this position to falling objects
-                        objectsToFall.add([x, y]);
-                    }
-                }
+    addBoulderLighting(x, y) {
+        try {
+            const lightAngle = (this.gameTime || 0) / 100;
+            const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+            const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+            
+            // Skip if any values are not finite
+            if (!isFinite(x * TILE_SIZE + gradX) || 
+                !isFinite(y * TILE_SIZE + gradY)) {
+                return;
             }
-
-            // Add these objects to the physics engine's falling objects
-            if (objectsToFall.size > 0) {
-                if (!this.physics.fallingObjects) {
-                    this.physics.fallingObjects = new Set();
-                }
-                objectsToFall.forEach(pos => {
-                    this.physics.fallingObjects.add(pos);
-                });
-            }
-
-            const physicsChanged = this.physics.update();
-
-            // Check for falling objects and their interaction with the player
-            if (physicsChanged) {
-                for (const [x, y] of this.physics.fallingObjects) {
-                    // If a falling object lands on the player's position, handle crushing
-                    if (x === this.playerPosition.x && y + 1 === this.playerPosition.y) {
-                        this.sound.play('crush');
-                        this.createCrashAnimation(this.playerPosition.x, this.playerPosition.y);
-                        this.handlePlayerDeath("Crushed by a falling object!");
-                        return;
-                    }
-                }
-
-                // Play fall sound if something moved
-                if (this.physics.fallingObjects.size > 0) {
-                    this.sound.play('fall');
-                }
-            }
-
-            this.physicsStep = 0;
-        }
-    }
-    
-    /**
-     * Update enemy movement
-     */
-    updateEnemies() {
-        if (this.enemies.length > 0) {
-            this.enemies = this.physics.moveEnemies(
-                this.enemies, 
-                this.playerPosition.x, 
-                this.playerPosition.y
+            
+            const gradient = this.ctx.createRadialGradient(
+                x * TILE_SIZE + gradX,
+                y * TILE_SIZE + gradY,
+                TILE_SIZE/8,
+                x * TILE_SIZE + TILE_SIZE/2,
+                y * TILE_SIZE + TILE_SIZE/2,
+                TILE_SIZE
             );
             
-            // Check if enemy caught the player
-            if (this.physics.checkEnemyCollision(this.playerPosition.x, this.playerPosition.y, this.enemies)) {
-                this.handlePlayerDeath("Caught by an enemy!");
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            this.ctx.fillStyle = gradient;
+            this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        } catch (error) {
+            // Silently fail - no need to warn on every frame
+        }
+    }
+    
+    /**
+     * Render special elements (player, diamonds) with animations
+     */
+    renderSpecialElements(elements) {
+        for (const elem of elements) {
+            if elem.type === ELEMENT_TYPES.PLAYER) {
+                this.renderPlayer(elem.x, elem.y);
+            } else if (elem.type === ELEMENT_TYPES.DIAMOND) {
+                this.renderDiamond(elem.x, elem.y);
             }
         }
     }
     
     /**
-     * Check player status for crushing, etc.
+     * Render player with animation
      */
-    checkPlayerStatus() {
-        if (!this.isRunning || this.gameOver) return;
+    renderPlayer(x, y) {
+        const directionOffset = {
+            'UP': 0.25,
+            'RIGHT': 0.5,
+            'DOWN': 0.75,
+            'LEFT': 0
+        }[this.playerDirection] || 0;
         
-        // Check if player is crushed by falling objects
-        if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
-            this.sound.play('crush');
-            this.handlePlayerDeath("Crushed by a falling object!");
-            return;
-        }
-        
-        // Check if exit should be open
-        if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
-            this.exitOpen = true;
-            this.sound.play('exit');
-            this.renderMessage("Exit is now open!");
-            
-            // Add particles effect around the exit
-            this.createExitParticles();
-        }
-    }
-    
-    /**
-     * Handle player movement
-     * @param {string} direction - Direction to move (UP, DOWN, LEFT, RIGHT)
-     */
-    handlePlayerMove(direction) {
-        if (!this.isRunning || this.gameOver) return;
-
-        console.log(`Attempting to move player in direction: ${direction}`);
-        console.log(`Current position: ${this.playerPosition.x}, ${this.playerPosition.y}`);
-
-        // Store direction for player sprite facing
-        this.playerDirection = direction;
-
-        // Validate player position before movement
-        if (this.playerPosition.x === undefined || this.playerPosition.y === undefined) {
-            console.error('Invalid player position');
-            this.playerPosition = { x: 2, y: 2 }; // Set fallback position
-        }
-
-        // Store the old position to check for empty spaces later
-        const oldX = this.playerPosition.x;
-        const oldY = this.playerPosition.y;
-
-        const moveResult = this.physics.movePlayer(
-            this.playerPosition.x,
-            this.playerPosition.y,
-            direction
-        );
-
-        console.log('Move result:', moveResult);
-
-        if (moveResult.success) {
-            // Clear the old player position in the grid
-            this.grid[this.playerPosition.y][this.playerPosition.x] = ELEMENT_TYPES.EMPTY;
-
-            // Update the player's position
-            this.playerPosition.x = moveResult.newX;
-            this.playerPosition.y = moveResult.newY;
-
-            // Set the new player position in the grid
-            this.grid[this.playerPosition.y][this.playerPosition.x] = ELEMENT_TYPES.PLAYER;
-
-            console.log(`Player moved to: ${this.playerPosition.x}, ${this.playerPosition.y}`);
-
-            // Check the previous position - if it's now empty, check objects above it
-            // This ensures boulders and diamonds fall when the path beneath is cleared
-            if (oldY > 0) {  // Make sure we're not at the top of the grid
-                const aboveElement = this.grid[oldY - 1][oldX];
-                if (aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) {
-                    // Mark this object for falling in the next physics update
-                    if (!this.physics.fallingObjects) {
-                        this.physics.fallingObjects = new Set();
-                    }
-                    this.physics.fallingObjects.add([oldX, oldY - 1]);
-                    
-                    // Force a physics update immediately to start the falling motion
-                    this.physicsStep = 3;
-                }
-            }
-
-            // Play movement sound
-            this.sound.play('move');
-
-            // Check if diamond collected
-            if (moveResult.collected) {
-                this.diamondsCollected++;
-                this.score += GAME_SETTINGS.DIAMOND_VALUE;
-                this.updateHUD();
-
-                // Play collect sound
-                this.sound.play('collect');
-
-                // Add particles effect
-                this.createCollectParticles(moveResult.newX, moveResult.newY);
-            }
-
-            // Check if player reached exit
-            if (moveResult.exit && this.exitOpen) {
-                this.completeLevel();
-            }
-
-            // Check if player was crushed
-            if (moveResult.crushed) {
-                this.sound.play('crush');
-                this.handlePlayerDeath("Caught by an enemy!");
-            }
-        }
-    }
-    
-    /**
-     * Complete the current level
-     */
-    completeLevel() {
-        this.level++;
-        
-        // Play level complete sound
-        this.sound.play('complete');
-        
-        if (this.level > GAME_SETTINGS.LEVEL_COUNT) {
-            this.gameWon();
-        } else {
-            this.renderMessage(`Level ${this.level - 1} completed!`);
-            this.stopTimer();
-            
-            // Add bonus points for remaining time
-            const timeBonus = this.timeRemaining * 5;
-            this.score += timeBonus;
-            
-            // Create celebration particles
-            this.createCelebrationParticles();
-            
-            setTimeout(() => {
-                this.loadLevel(this.level);
-                this.timeRemaining = GAME_SETTINGS.INITIAL_TIME + (this.level * 30);
-                this.startTimer();
-            }, 3000);
-        }
-    }
-    
-    /**
-     * Handle player death
-     * @param {string} reason - Reason for death
-     */
-    handlePlayerDeath(reason) {
-        this.isRunning = false;
-        this.gameOver = true;
-        
-        // Play game over sound
-        this.sound.play('gameOver');
-        
-        // Render death message directly instead of using showMessage
-        this.renderMessage(`Game Over!`, reason);
-        
-        // Create death particles
-        this.createDeathParticles();
-        
-        // Stop the timer
-        this.stopTimer();
-        
-        // Show restart button
-        this.restartButton.style.display = 'inline-block';
-    }
-    
-    /**
-     * Show a message on screen - renamed to avoid any method conflicts
-     * @param {string} title - The message title
-     * @param {string} subtitle - The message subtitle (optional)
-     */
-    renderMessage(title, subtitle) {
-        if (!this.ctx) return; // Safety check
-        
-        // Draw message overlay
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        
-        const height = subtitle ? 120 : 80;
-        this.ctx.fillRect(0, this.canvas.height / 2 - height/2, this.canvas.width, height);
-        
-        // Draw title
-        this.ctx.font = 'bold 28px Arial, sans-serif';
-        this.ctx.fillStyle = '#ffcc00';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(title, this.canvas.width / 2, this.canvas.height / 2 - 10);
-        
-        // Draw subtitle if provided
-        if (subtitle) {
-            this.ctx.font = '20px Arial, sans-serif';
-            this.ctx.fillStyle = 'white';
-            this.ctx.fillText(subtitle, this.canvas.width / 2, this.canvas.height / 2 + 30);
-        }
-    }
-    
-    /**
-     * Draw all particles
-     */
-    drawParticles() {
-        for (const particle of this.particles) {
-            // Calculate opacity based on remaining life
-            const baseOpacity = particle.opacity !== undefined ? particle.opacity : 1;
-            const opacity = baseOpacity * (particle.life / (particle.type === 'dust' ? 90 : 60));
-            
-            this.ctx.fillStyle = particle.color;
-            this.ctx.globalAlpha = opacity;
-            
-            // Draw the particle based on its type
-            if (particle.type === 'dust') {
-                // Dust is more cloud-like
-                this.ctx.beginPath();
-                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                this.ctx.fill();
-            } else if (particle.type === 'debris') {
-                // Debris can be small squares or triangles
-                if (Math.random() > 0.5) {
-                    // Square
-                    this.ctx.fillRect(
-                        particle.x - particle.size/2,
-                        particle.y - particle.size/2,
-                        particle.size,
-                        particle.size
-                    );
-                } else {
-                    // Triangle
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(particle.x, particle.y - particle.size/2);
-                    this.ctx.lineTo(particle.x + particle.size/2, particle.y + particle.size/2);
-                    this.ctx.lineTo(particle.x - particle.size/2, particle.y + particle.size/2);
-                    this.ctx.closePath();
-                    this.ctx.fill();
-                }
-            } else {
-                // Default particle shape is circle
-                this.ctx.beginPath();
-                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-        }
-        
-        // Reset global alpha
-        this.ctx.globalAlpha = 1;
-    }
-    
-    /**
-     * Apply screen shake effect to the context
-     */
-    applyScreenShake() {
-        if (this.screenShake <= 0) return;
-        
-        // Calculate shake offset
-        const intensity = this.screenShakeIntensity * (this.screenShake / 20);
-        const shakeX = (Math.random() * 2 - 1) * intensity;
-        const shakeY = (Math.random() * 2 - 1) * intensity;
-        
-        // Apply the shake
         this.ctx.save();
-        this.ctx.translate(shakeX, shakeY);
+        this.ctx.translate(
+            x * TILE_SIZE + TILE_SIZE/2,
+            y * TILE_SIZE + TILE_SIZE/2
+        );
+        
+        // Add slight bobbing motion based on game time
+        const bob = Math.sin(this.gameTime / 10) * 2;
+        this.ctx.translate(0, bob);
+        
+        this.ctx.rotate(directionOffset * Math.PI * 2);
+        this.ctx.drawImage(
+            this.sprites[ELEMENT_TYPES.PLAYER],
+            -TILE_SIZE/2,
+            -TILE_SIZE/2,
+            TILE_SIZE,
+            TILE_SIZE
+        );
+        this.ctx.restore();
     }
     
     /**
-     * Create a collection of sample elements for the title screen
+     * Render diamond with sparkle effect
      */
-    drawSampleElements() {
-        // Draw some sample diamonds and boulders around the edges
-        for (let i = 0; i < 8; i++) {
-            const x = (i % 4) * (this.canvas.width / 4) + TILE_SIZE;
-            
-            // Draw diamonds at the top if sprites are loaded
-            if (this.sprites && this.sprites[ELEMENT_TYPES.DIAMOND]) {
-                this.ctx.drawImage(
-                    this.sprites[ELEMENT_TYPES.DIAMOND], 
-                    x, TILE_SIZE, 
-                    TILE_SIZE, TILE_SIZE
-                );
-            }
-            
-            // Draw boulders at the bottom if sprites are loaded
-            if (this.sprites && this.sprites[ELEMENT_TYPES.BOULDER]) {
-                this.ctx.drawImage(
-                    this.sprites[ELEMENT_TYPES.BOULDER], 
-                    x, this.canvas.height - TILE_SIZE * 2, 
-                    TILE_SIZE, TILE_SIZE
-                );
-            }
-        }
+    renderDiamond(x, y) {
+        const sparkleIntensity = (Math.sin(this.gameTime / 10 + x * 0.5 + y * 0.7) + 1) / 2;
         
-        // Draw animated player if sprites are loaded
-        if (this.sprites && this.sprites[ELEMENT_TYPES.PLAYER]) {
-            const playerX = this.canvas.width / 2 - TILE_SIZE / 2;
-            const playerY = this.canvas.height - TILE_SIZE * 4;
-            this.ctx.drawImage(
-                this.sprites[ELEMENT_TYPES.PLAYER], 
-                playerX, playerY, 
-                TILE_SIZE, TILE_SIZE
-            );
-        }
+        // Draw the diamond
+        this.ctx.drawImage(
+            this.sprites[ELEMENT_TYPES.DIAMOND],
+            x * TILE_SIZE,
+            y * TILE_SIZE,
+            TILE_SIZE,
+            TILE_SIZE
+        );
+        
+        // Add sparkle overlay
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${sparkleIntensity * 0.3})`;
+        this.ctx.fillRect(
+            x * TILE_SIZE + TILE_SIZE/4,
+            y * TILE_SIZE + TILE_SIZE/4,
+            TILE_SIZE/2,
+            TILE_SIZE/2
+        );
     }
     
     /**
-     * Create collection particles
+     * Render exit with animation
      */
-    createCollectParticles(x, y) {
-        const centerX = x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = y * TILE_SIZE + TILE_SIZE / 2;
+    renderExit() {
+        const exitX = this.exitPosition.x * TILE_SIZE;
+        const exitY = this.exitPosition.y * TILE_SIZE;
         
-        // Create sparkles
-        for (let i = 0; i < 10; i++) {
-            this.particles.push({
-                x: centerX,
-                y: centerY,
-                vx: (Math.random() - 0.5) * 3,
-                vy: (Math.random() - 0.5) * 3,
-                color: '#00FFFF',
-                size: Math.random() * 3 + 1,
-                life: 30
-            });
-        }
-    }
-    
-    /**
-     * Create particles for exit appearance
-     */
-    createExitParticles() {
-        const centerX = this.exitPosition.x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = this.exitPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        // Add pulsing effect to the exit - use performance.now() for smooth animation
+        const pulseScale = 1 + 0.15 * Math.sin(performance.now() / 150);
+        const rotationAngle = Math.sin(performance.now() / 1000) * 0.1;
         
-        // Create sparkles around exit
-        for (let i = 0; i < 40; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 30 + 10;
-            
-            this.particles.push({
-                x: centerX + Math.cos(angle) * distance,
-                y: centerY + Math.sin(angle) * distance,
-                vx: Math.cos(angle) * 2,
-                vy: Math.sin(angle) * 2,
-                color: '#FF00FF',
-                size: Math.random() * 4 + 2,
-                life: 60
-            });
-        }
-    }
-    
-    /**
-     * Create particles for celebration effects
-     */
-    createCelebrationParticles() {
-        for (let i = 0; i < 100; i++) {
-            this.particles.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
-                vx: (Math.random() - 0.5) * 6,
-                vy: (Math.random() - 0.5) * 6,
-                color: `hsl(${Math.random() * 360}, 100%, 60%)`,
-                size: Math.random() * 5 + 2,
-                life: Math.random() * 90 + 30
-            });
-        }
-    }
-    
-    /**
-     * Create death effect particles
-     */
-    createDeathParticles() {
-        const centerX = this.playerPosition.x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = this.playerPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        this.ctx.save();
+        this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
+        this.ctx.scale(pulseScale, pulseScale);
+        this.ctx.rotate(rotationAngle);
         
-        // Create explosion effect
-        for (let i = 0; i < 50; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 4 + 1;
-            
-            this.particles.push({
-                x: centerX,
-                y: centerY,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                color: `hsl(${Math.random() * 60}, 100%, 50%)`,
-                size: Math.random() * 4 + 2,
-                life: Math.random() * 60 + 20
-            });
-        }
-    }
-    
-    /**
-     * Handle completion of the game
-     */
-    gameWon() {
-        this.isRunning = false;
-        this.gameOver = true;
+        // Add glowing effect
+        const glowSize = 1.5 + 0.3 * Math.sin(performance.now() / 300);
+        this.ctx.globalAlpha = 0.4;
+        this.ctx.drawImage(
+            this.sprites[ELEMENT_TYPES.EXIT],
+            -TILE_SIZE / 2 * glowSize,
+            -TILE_SIZE / 2 * glowSize,
+            TILE_SIZE * glowSize,
+            TILE_SIZE * glowSize
+        );
         
-        // Play level complete sound
-        this.sound.play('complete');
-        
-        this.renderMessage(`Congratulations!`, `You've won with ${this.score} points!`);
-        
-        // Create celebration particles
-        this.createCelebrationParticles();
-        
-        // Stop the timer
-        this.stopTimer();
-        
-        // Show restart button
-        this.restartButton.style.display = 'inline-block';
+        // Draw the actual exit
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.drawImage(
+            this.sprites[ELEMENT_TYPES.EXIT],
+            -TILE_SIZE / 2,
+            -TILE_SIZE / 2,
+            TILE_SIZE,
+            TILE_SIZE
+        );
+        this.ctx.restore();
     }
 }
 
-// Start the game when the DOM is loaded
+/**
+ * Time-based particle update
+ * @param {number} deltaFactor - Time-based factor for smooth animation
+ */
+updateParticles(deltaFactor = 1) {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+        const particle = this.particles[i];
+        
+        // Scale movement by time factor
+        particle.x += particle.vx * deltaFactor;
+        particle.y += particle.vy * deltaFactor;
+        
+        // Apply gravity and friction based on particle type
+        const gravity = (particle.gravity || 0.1) * deltaFactor;
+        particle.vy += gravity;
+        
+        // Different behavior for different particle types with time-based decay
+        if (particle.type === 'debris') {
+            particle.vx *= (0.95 ** deltaFactor);
+            particle.vy *= (0.95 ** deltaFactor);
+        } else {
+            particle.vx *= (0.97 ** deltaFactor);
+            particle.vy *= (0.97 ** deltaFactor);
+        }
+        
+        // Reduce life proportional to time
+        particle.life -= deltaFactor;
+        
+        // Remove dead particles
+        if (particle.life <= 0) {
+            // Optimize by swapping with the last element to avoid array shifts
+            if (i < this.particles.length - 1) {
+                this.particles[i] = this.particles[this.particles.length - 1];
+                i++; // Re-check this index in the next iteration
+            }
+            this.particles.pop();
+        }
+    }
+}
+
+/**
+ * Render optimization with layer separation
+ */
+render() {
+    const ctx = this.ctx;
+    
+    // Clear the canvas
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Draw background pattern
+    ctx.fillStyle = this.backgroundPattern;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Apply screen shake
+    this.applyScreenShake();
+    
+    // Draw a subtle ambient lighting effect
+    const ambientCycle = Math.sin(this.gameTime / 60) * 0.1 + 0.9;
+    ctx.fillStyle = `rgba(20, 20, 40, ${0.1 * ambientCycle})`;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Pre-categorize elements for more efficient rendering
+    const specialElements = [];
+    const regularElements = [];
+    
+    // Gather elements to render with position data
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+        for (let x = 0; x < GRID_WIDTH; x++) {
+            const element = this.grid?.[y]?.[x];
+            
+            // Skip empty cells
+            if (!element || element === ELEMENT_TYPES.EMPTY) continue;
+            
+            // Skip exit when open - handled separately for animation
+            if (element === ELEMENT_TYPES.EXIT && this.exitOpen) continue;
+            
+            if (element === ELEMENT_TYPES.PLAYER || element === ELEMENT_TYPES.DIAMOND) {
+                specialElements.push({ x, y, type: element });
+            } else {
+                regularElements.push({ x, y, type: element });
+            }
+        }
+    }
+    
+    // Render regular elements first
+    this.renderElements(regularElements);
+    
+    // Handle exit animation when open
+    if (this.exitOpen) {
+        this.renderExit();
+    }
+    
+    // Render special elements on top
+    this.renderSpecialElements(specialElements);
+    
+    // Draw particles
+    this.drawParticles();
+    
+    // Reset any transformations from screen shake
+    if (this.screenShake > 0) {
+        this.ctx.restore();
+    }
+}
+
+/**
+ * Render regular game elements efficiently in batches
+ * @param {Array} elements - Array of element position data
+ */
+renderElements(elements) {
+    // Group elements by type for batch rendering
+    const elementsByType = {};
+    
+    // Group elements
+    for (const elem of elements) {
+        if (!elementsByType[elem.type]) {
+            elementsByType[elem.type] = [];
+        }
+        elementsByType[elem.type].push(elem);
+    }
+    
+    // Render each type in batches
+    for (const type in elementsByType) {
+        const typeElements = elementsByType[type];
+        const sprite = this.sprites[type];
+        
+        // Draw all elements of this type
+        for (const elem of typeElements) {
+            this.ctx.drawImage(
+                sprite,
+                elem.x * TILE_SIZE,
+                elem.y * TILE_SIZE,
+                TILE_SIZE,
+                TILE_SIZE
+            );
+            
+            // Special handling for boulders with lighting effects
+            if (parseInt(type) === ELEMENT_TYPES.BOULDER) {
+                this.addBoulderLighting(elem.x, elem.y);
+            }
+        }
+    }
+}
+
+/**
+ * Add lighting effect to boulder
+ */
+addBoulderLighting(x, y) {
+    try {
+        const lightAngle = (this.gameTime || 0) / 100;
+        const gradX = Math.cos(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+        const gradY = Math.sin(lightAngle) * TILE_SIZE/2 + TILE_SIZE/2;
+        
+        // Skip if any values are not finite
+        if (!isFinite(x * TILE_SIZE + gradX) || 
+            !isFinite(y * TILE_SIZE + gradY)) {
+            return;
+        }
+        
+        const gradient = this.ctx.createRadialGradient(
+            x * TILE_SIZE + gradX,
+            y * TILE_SIZE + gradY,
+            TILE_SIZE/8,
+            x * TILE_SIZE + TILE_SIZE/2,
+            y * TILE_SIZE + TILE_SIZE/2,
+            TILE_SIZE
+        );
+        
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    } catch (error) {
+        // Silently fail - no need to warn on every frame
+    }
+}
+
+/**
+ * Render special elements (player, diamonds) with animations
+ */
+renderSpecialElements(elements) {
+    for (const elem of elements) {
+        if (elem.type === ELEMENT_TYPES.PLAYER) {
+            this.renderPlayer(elem.x, elem.y);
+        } else if (elem.type === ELEMENT_TYPES.DIAMOND) {
+            this.renderDiamond(elem.x, elem.y);
+        }
+    }
+}
+
+/**
+ * Render player with animation
+ */
+renderPlayer(x, y) {
+    const directionOffset = {
+        'UP': 0.25,
+        'RIGHT': 0.5,
+        'DOWN': 0.75,
+        'LEFT': 0
+    }[this.playerDirection] || 0;
+    
+    this.ctx.save();
+    this.ctx.translate(
+        x * TILE_SIZE + TILE_SIZE/2,
+        y * TILE_SIZE + TILE_SIZE/2
+    );
+    
+    // Add slight bobbing motion based on game time
+    const bob = Math.sin(this.gameTime / 10) * 2;
+    this.ctx.translate(0, bob);
+    
+    this.ctx.rotate(directionOffset * Math.PI * 2);
+    this.ctx.drawImage(
+        this.sprites[ELEMENT_TYPES.PLAYER],
+        -TILE_SIZE/2,
+        -TILE_SIZE/2,
+        TILE_SIZE,
+        TILE_SIZE
+    );
+    this.ctx.restore();
+}
+
+/**
+ * Render diamond with sparkle effect
+ */
+renderDiamond(x, y) {
+    const sparkleIntensity = (Math.sin(this.gameTime / 10 + x * 0.5 + y * 0.7) + 1) / 2;
+    
+    // Draw the diamond
+    this.ctx.drawImage(
+        this.sprites[ELEMENT_TYPES.DIAMOND],
+        x * TILE_SIZE,
+        y * TILE_SIZE,
+        TILE_SIZE,
+        TILE_SIZE
+    );
+    
+    // Add sparkle overlay
+    this.ctx.fillStyle = `rgba(255, 255, 255, ${sparkleIntensity * 0.3})`;
+    this.ctx.fillRect(
+        x * TILE_SIZE + TILE_SIZE/4,
+        y * TILE_SIZE + TILE_SIZE/4,
+        TILE_SIZE/2,
+        TILE_SIZE/2
+    );
+}
+
+/**
+ * Render exit with animation
+ */
+renderExit() {
+    const exitX = this.exitPosition.x * TILE_SIZE;
+    const exitY = this.exitPosition.y * TILE_SIZE;
+    
+    // Add pulsing effect to the exit - use performance.now() for smooth animation
+    const pulseScale = 1 + 0.15 * Math.sin(performance.now() / 150);
+    const rotationAngle = Math.sin(performance.now() / 1000) * 0.1;
+    
+    this.ctx.save();
+    this.ctx.translate(exitX + TILE_SIZE / 2, exitY + TILE_SIZE / 2);
+    this.ctx.scale(pulseScale, pulseScale);
+    this.ctx.rotate(rotationAngle);
+    
+    // Add glowing effect
+    const glowSize = 1.5 + 0.3 * Math.sin(performance.now() / 300);
+    this.ctx.globalAlpha = 0.4;
+    this.ctx.drawImage(
+        this.sprites[ELEMENT_TYPES.EXIT],
+        -TILE_SIZE / 2 * glowSize,
+        -TILE_SIZE / 2 * glowSize,
+        TILE_SIZE * glowSize,
+        TILE_SIZE * glowSize
+    );
+    
+    // Draw the actual exit
+    this.ctx.globalAlpha = 1.0;
+    this.ctx.drawImage(
+        this.sprites[ELEMENT_TYPES.EXIT],
+        -TILE_SIZE / 2,
+        -TILE_SIZE / 2,
+        TILE_SIZE,
+        TILE_SIZE
+    );
+    this.ctx.restore();
+}
+}
+
+/**
+ * Start the game when the DOM is loaded
+ */
 document.addEventListener('DOMContentLoaded', () => {
-    const game = new Game();
+const game = new Game();
 });
