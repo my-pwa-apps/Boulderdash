@@ -124,51 +124,6 @@ export function generateAssets() {
 }
 
 /**
- * Generate a procedural sprite for a game element
- * @param {string} color - The main color of the element
- * @param {number} type - The element type
- * @returns {HTMLCanvasElement} - A canvas element with the generated sprite
- */
-function generateSprite(color, type) {
-    const canvas = document.createElement('canvas');
-    canvas.width = TILE_SIZE;
-    canvas.height = TILE_SIZE;
-    const ctx = canvas.getContext('2d');
-    
-    // Fill background
-    ctx.fillStyle = COLORS.EMPTY;
-    ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-    
-    switch (type) {
-        case ELEMENT_TYPES.WALL:
-            drawWall(ctx, color);
-            break;
-        case ELEMENT_TYPES.DIRT:
-            drawDirt(ctx, color);
-            break;
-        case ELEMENT_TYPES.BOULDER:
-            drawBoulder(ctx, color);
-            break;
-        case ELEMENT_TYPES.DIAMOND:
-            drawDiamond(ctx, color);
-            break;
-        case ELEMENT_TYPES.EXIT:
-            drawExit(ctx, color);
-            break;
-        case ELEMENT_TYPES.PLAYER:
-            drawPlayer(ctx, color);
-            break;
-        case ELEMENT_TYPES.ENEMY:
-            drawEnemy(ctx, color);
-            break;
-        default:
-            break;
-    }
-    
-    return canvas;
-}
-
-/**
  * Draw a procedural wall tile
  * @param {CanvasRenderingContext2D} ctx - The canvas context
  * @param {string} color - The main color
