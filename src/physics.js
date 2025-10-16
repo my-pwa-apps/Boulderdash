@@ -14,6 +14,14 @@ export class GamePhysics {
     }
     
     /**
+     * Get a copy of the current physics grid
+     * @returns {Array<Array<number>>} - A clone of the current grid
+     */
+    getGrid() {
+        return cloneGrid(this.grid);
+    }
+    
+    /**
      * Update the physics state of the game
      * @returns {boolean} - Whether any physics updates occurred
      */

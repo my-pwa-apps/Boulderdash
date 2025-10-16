@@ -87,6 +87,12 @@ class Game {
             const muted = this.sound.toggleMute();
             this.muteButton.textContent = muted ? '🔇' : '🔊';
         });
+        
+        // Initialize debug display
+        this.debugDisplay = document.getElementById('debugDisplay');
+        if (this.debugDisplay) {
+            this.debugDisplay.classList.remove('hidden');
+        }
     }
     
     setupButtonListeners() {
@@ -103,19 +109,34 @@ class Game {
     
     setupEventListeners() {
         window.addEventListener('keydown', (e) => {
-            if (!this.isRunning || this.gameOver || this.levelComplete) return;
+            // Update debug display
+            if (this.debugDisplay) {
+                document.getElementById('lastKey').textContent = e.key;
+                document.getElementById('isRunning').textContent = this.isRunning;
+                document.getElementById('playerPos').textContent = `${this.playerPosition.x},${this.playerPosition.y}`;
+            }
+            
+            console.log(`Key pressed: ${e.key}, isRunning: ${this.isRunning}`);
             const direction = KEY_MAPPINGS[e.key];
             if (direction) {
+                if (this.debugDisplay) {
+                    document.getElementById('lastDirection').textContent = direction;
+                }
+                console.log(`Direction mapped: ${direction}`);
                 e.preventDefault();
-                this.playerNextDirection = direction;
+                // Only queue direction if game is actively running
+                if (this.isRunning && !this.gameOver && !this.levelComplete) {
+                    this.playerNextDirection = direction;
+                    console.log(`Direction queued: ${direction}`);
+                }
             }
         });
         
         window.addEventListener('keydown', (e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 's', 'S', 'a', 'A', 'd', 'D'].includes(e.key)) {
                 e.preventDefault();
             }
-        }, { passive: false });
+        });
         
         window.addEventListener('resize', () => this.handleResize());
         document.addEventListener('visibilitychange', () => {
@@ -277,6 +298,8 @@ class Game {
     updatePhysics() {
         if (!this.physics) return;
         this.physics.update();
+        // Sync the physics grid back to the game grid
+        this.grid = this.physics.getGrid();
         if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
             this.handlePlayerDeath('Crushed!');
         }
@@ -286,10 +309,15 @@ class Game {
         if (!this.physics) return;
         this.playerDirection = direction;
         const result = this.physics.movePlayer(this.playerPosition.x, this.playerPosition.y, direction);
+        console.log(`Player move attempt: ${direction} -> Success: ${result.success}, New pos: ${result.newX}, ${result.newY}`);
+        
+        // Sync the physics grid back to the game grid after movement
+        this.grid = this.physics.getGrid();
         
         if (result.success) {
             this.playerPosition.x = result.newX;
             this.playerPosition.y = result.newY;
+            console.log(`Player position updated to: ${this.playerPosition.x}, ${this.playerPosition.y}`);
             
             if (result.collected) {
                 this.diamondsCollected++;
@@ -316,6 +344,9 @@ class Game {
     updateEnemies() {
         if (!this.physics) return;
         this.enemies = this.physics.moveEnemies(this.enemies, this.playerPosition.x, this.playerPosition.y);
+        
+        // Sync the physics grid back to the game grid after enemy moves
+        this.grid = this.physics.getGrid();
         
         if (this.physics.checkEnemyCollision(this.playerPosition.x, this.playerPosition.y, this.enemies)) {
             this.handlePlayerDeath('Enemy contact!');
