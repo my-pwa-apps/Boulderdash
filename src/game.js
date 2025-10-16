@@ -153,10 +153,19 @@ class Game {
         const container = this.canvas.parentElement;
         if (!container) return;
         
-        // Get container dimensions with padding considered
-        const containerRect = container.getBoundingClientRect();
-        const maxWidth = containerRect.width - 20; // Account for padding
-        const maxHeight = window.innerHeight * 0.6; // Max 60% of viewport height
+        // Get available space
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Calculate max dimensions with safety margins
+        const maxWidth = Math.min(
+            container.clientWidth - 40,
+            viewportWidth - 60
+        );
+        const maxHeight = Math.min(
+            viewportHeight * 0.5, // Max 50% of viewport height
+            600 // Max absolute height
+        );
         
         const aspectRatio = this.canvas.width / this.canvas.height;
         let width = Math.min(maxWidth, this.canvas.width);
@@ -167,8 +176,8 @@ class Game {
             width = height * aspectRatio;
         }
         
-        this.canvas.style.width = `${width}px`;
-        this.canvas.style.height = `${height}px`;
+        this.canvas.style.width = `${Math.floor(width)}px`;
+        this.canvas.style.height = `${Math.floor(height)}px`;
     }
     
     startGame() {

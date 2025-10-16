@@ -10,7 +10,7 @@ body {
     color: #fff;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     min-height: 100vh;
     padding: 10px;
     margin: 0;
@@ -35,8 +35,9 @@ body {
         0 0 50px rgba(255, 0, 255, 0.3),
         0 0 100px rgba(0, 255, 255, 0.2),
         inset 0 0 100px rgba(0, 0, 0, 0.5);
-    max-width: min(1200px, 100vw);
+    max-width: min(1200px, calc(100vw - 20px));
     width: 100%;
+    margin: 20px auto;
     position: relative;
     border: 4px solid #ff00ff;
     background: 
@@ -195,8 +196,8 @@ h1 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: 20px;
-    padding: 15px;
+    margin-top: 15px;
+    padding: 15px 10px;
     background-color: rgba(0, 0, 0, 0.5);
     border-radius: 0;
     border: 2px solid #00ffff;
@@ -204,28 +205,33 @@ h1 {
 
 .controls-info {
     text-align: center;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     position: relative;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
 }
 
 .controls-info p {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     color: #ffff00;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     font-weight: 900;
     text-shadow: 0 0 10px #ffff00;
-    font-size: clamp(0.8rem, 2vw, 1.1rem);
+    font-size: clamp(0.7rem, 2vw, 1rem);
+    line-height: 1.4;
 }
 
 button {
     background: #ff00ff;
     color: #ffff00;
     border: 3px solid #ffff00;
-    padding: clamp(10px, 2vw, 15px) clamp(20px, 4vw, 30px);
-    margin: 10px;
-    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    padding: clamp(8px, 2vw, 15px) clamp(15px, 4vw, 30px);
+    margin: 5px;
+    font-size: clamp(0.9rem, 2.5vw, 1.3rem);
     border-radius: 0;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -234,11 +240,12 @@ button {
         0 0 20px rgba(255, 0, 255, 0.8),
         inset 0 0 10px rgba(255, 255, 0, 0.3);
     text-transform: uppercase;
-    letter-spacing: 3px;
+    letter-spacing: clamp(1px, 0.5vw, 3px);
     font-family: 'Courier New', monospace;
     text-shadow: 0 0 10px #000;
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
 }
 
 button::before {
@@ -441,50 +448,64 @@ body::after {
 @media (max-width: 768px) {
     body {
         padding: 5px;
+        align-items: flex-start;
     }
     
     .game-container {
         padding: 10px;
         border-width: 2px;
+        margin: 10px auto;
     }
     
     h1 {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
     
     .game-info {
-        padding: 10px;
+        padding: 8px;
         gap: 5px;
+        margin-bottom: 10px;
     }
     
     .game-info div {
-        padding: 5px 10px;
-        min-width: 80px;
+        padding: 5px 8px;
+        min-width: 70px;
         letter-spacing: 1px;
+        font-size: 0.85rem;
     }
     
     #gameCanvas {
         border-width: 2px;
+        margin-bottom: 10px;
     }
     
     .game-controls {
-        padding: 10px;
-        margin-top: 10px;
+        padding: 8px;
+        margin-top: 8px;
+    }
+    
+    .controls-info p {
+        font-size: 0.7rem;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
     }
     
     button {
-        margin: 5px;
-        padding: 10px 20px;
+        margin: 4px;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
     }
     
     #helpModal {
         width: 90%;
-        padding: 20px;
+        padding: 15px;
     }
     
     .help-title {
-        font-size: 1.5rem;
+        font-size: 1.3rem;
         letter-spacing: 2px;
+        margin-bottom: 15px;
     }
     
     .help-list {
@@ -492,30 +513,116 @@ body::after {
     }
     
     .help-list li {
-        font-size: 0.95rem;
-        margin-bottom: 12px;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
     }
 }
 
 @media (max-width: 480px) {
+    body {
+        padding: 3px;
+    }
+    
     .game-container {
-        padding: 5px;
+        padding: 8px;
+        margin: 5px auto;
+        border-width: 2px;
+    }
+    
+    h1 {
+        margin-bottom: 5px;
+    }
+    
+    .game-header {
+        margin-bottom: 10px;
     }
     
     .game-info {
         flex-direction: column;
         align-items: stretch;
+        padding: 8px;
+        gap: 5px;
     }
     
     .game-info div {
-        margin: 3px 0;
+        margin: 2px 0;
+        padding: 6px;
+        font-size: 0.8rem;
+    }
+    
+    #gameCanvas {
+        margin-bottom: 8px;
+    }
+    
+    .game-controls {
+        padding: 8px 5px;
+        margin-top: 5px;
+    }
+    
+    .controls-info {
+        gap: 5px;
+    }
+    
+    .controls-info p {
+        font-size: 0.65rem;
+        margin-bottom: 5px;
+        line-height: 1.3;
+    }
+    
+    button {
+        margin: 3px;
+        padding: 8px 12px;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        border-width: 2px;
+    }
+    
+    #helpModal {
+        width: 95%;
+        padding: 12px;
     }
     
     .help-title {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+    }
+    
+    .help-list {
+        padding: 0 8px;
     }
     
     .help-list li {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
+        margin-bottom: 8px;
+    }
+}
+
+@media (max-height: 700px) {
+    .game-container {
+        margin: 10px auto;
+    }
+    
+    h1 {
+        font-size: clamp(1.2rem, 4vw, 2rem);
+        margin-bottom: 8px;
+    }
+    
+    .game-header {
+        margin-bottom: 10px;
+    }
+    
+    .game-info {
+        padding: 8px;
+        margin-bottom: 8px;
+    }
+    
+    .game-controls {
+        margin-top: 8px;
+        padding: 8px;
+    }
+    
+    button {
+        margin: 3px;
+        padding: 6px 12px;
     }
 }
