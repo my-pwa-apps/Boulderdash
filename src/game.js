@@ -88,11 +88,9 @@ class Game {
             this.muteButton.textContent = muted ? '🔇' : '🔊';
         });
         
-        // Initialize debug display
+        // Initialize debug display (keep hidden for production)
         this.debugDisplay = document.getElementById('debugDisplay');
-        if (this.debugDisplay) {
-            this.debugDisplay.classList.remove('hidden');
-        }
+        // Uncomment to show debug info: this.debugDisplay.classList.remove('hidden');
     }
     
     setupButtonListeners() {
@@ -109,26 +107,12 @@ class Game {
     
     setupEventListeners() {
         window.addEventListener('keydown', (e) => {
-            // Update debug display
-            if (this.debugDisplay) {
-                document.getElementById('lastKey').textContent = e.key;
-                document.getElementById('isRunning').textContent = this.isRunning;
-                const gridValue = this.grid && this.grid[this.playerPosition.y] ? this.grid[this.playerPosition.y][this.playerPosition.x] : '?';
-                document.getElementById('playerPos').textContent = `${this.playerPosition.x},${this.playerPosition.y} (grid:${gridValue})`;
-            }
-            
-            console.log(`Key pressed: ${e.key}, isRunning: ${this.isRunning}`);
             const direction = KEY_MAPPINGS[e.key];
             if (direction) {
-                if (this.debugDisplay) {
-                    document.getElementById('lastDirection').textContent = direction;
-                }
-                console.log(`Direction mapped: ${direction}`);
                 e.preventDefault();
                 // Only queue direction if game is actively running
                 if (this.isRunning && !this.gameOver && !this.levelComplete) {
                     this.playerNextDirection = direction;
-                    console.log(`Direction queued: ${direction}`);
                 }
             }
         });
@@ -168,8 +152,8 @@ class Game {
         this.isRunning = true;
         this.gameOver = false;
         this.levelComplete = false;
-        this.startButton.style.display = 'none';
-        this.restartButton.style.display = 'inline-block';
+        this.startButton.classList.add('hidden');
+        this.restartButton.classList.remove('hidden');
         this.helpModal.style.display = 'none';
         this.loadLevel(this.level);
         this.startTimer();
@@ -297,14 +281,6 @@ class Game {
         }
         
         this.updateParticles(cappedDelta / 16);
-        
-        // Update debug display every frame
-        if (this.debugDisplay) {
-            document.getElementById('isRunning').textContent = this.isRunning;
-            const gridValue = this.grid && this.grid[this.playerPosition.y] ? this.grid[this.playerPosition.y][this.playerPosition.x] : '?';
-            document.getElementById('playerPos').textContent = `${this.playerPosition.x},${this.playerPosition.y} (grid:${gridValue})`;
-        }
-        
         this.render();
         this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     }
@@ -321,12 +297,10 @@ class Game {
         if (!this.physics) return;
         this.playerDirection = direction;
         const result = this.physics.movePlayer(this.playerPosition.x, this.playerPosition.y, direction);
-        console.log(`Player move attempt: ${direction} -> Success: ${result.success}, New pos: ${result.newX}, ${result.newY}`);
         
         if (result.success) {
             this.playerPosition.x = result.newX;
             this.playerPosition.y = result.newY;
-            console.log(`Player position updated to: ${this.playerPosition.x}, ${this.playerPosition.y}`);
             
             if (result.collected) {
                 this.diamondsCollected++;
@@ -372,6 +346,9 @@ class Game {
         this.gameOver = true;
         this.isRunning = false;
         this.stopTimer();
+        // Show restart button when game is over
+        this.restartButton.classList.remove('hidden');
+        this.startButton.classList.add('hidden');
     }
     
     completeLevel() {
@@ -462,15 +439,6 @@ class Game {
             this.drawTile(enemy.x, enemy.y, ELEMENT_TYPES.ENEMY);
         }
         
-        // DEBUG: Draw a red square at player position
-        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-        this.ctx.fillRect(
-            this.playerPosition.x * TILE_SIZE, 
-            this.playerPosition.y * TILE_SIZE, 
-            TILE_SIZE, 
-            TILE_SIZE
-        );
-        
         for (const p of this.particles) {
             this.ctx.fillStyle = p.color;
             this.ctx.globalAlpha = Math.max(0, p.life / (p.life + 10)) * (p.opacity || 1);
@@ -519,22 +487,86 @@ class Game {
     }
     
     drawTitleScreen() {
+        const time = Date.now() / 1000;
+        
+        // Black background with grid
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        this.ctx.font = 'bold 48px Arial';
-        this.ctx.fillStyle = '#ffcc00';
+        // Draw grid pattern
+        this.ctx.strokeStyle = 'rgba(255, 0, 255, 0.1)';
+        this.ctx.lineWidth = 1;
+        for (let x = 0; x < this.canvas.width; x += 40) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.stroke();
+        }
+        for (let y = 0; y < this.canvas.height; y += 40) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+            this.ctx.stroke();
+        }
+        
+        // Animated title with multiple layers
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2 - 80;
+        
+        // Shadow layers for depth
+        this.ctx.font = 'bold 64px Courier New';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 2 - 60);
         
-        this.ctx.font = '24px Arial';
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.fillText('Collect diamonds and escape!', this.canvas.width / 2, this.canvas.height / 2 - 10);
+        // Cyan shadow
+        this.ctx.fillStyle = '#00ffff';
+        this.ctx.fillText('BOULDER DASH', centerX + 6, centerY + 6);
         
-        this.ctx.font = '18px Arial';
-        this.ctx.fillStyle = '#cccccc';
-        this.ctx.fillText('Press Start Game to begin', this.canvas.width / 2, this.canvas.height / 2 + 40);
+        // Magenta shadow
+        this.ctx.fillStyle = '#ff00ff';
+        this.ctx.fillText('BOULDER DASH', centerX + 4, centerY + 4);
+        
+        // Main text with glow
+        const glowIntensity = Math.sin(time * 3) * 0.5 + 0.5;
+        this.ctx.shadowColor = '#ffff00';
+        this.ctx.shadowBlur = 20 + glowIntensity * 20;
+        this.ctx.fillStyle = '#ffff00';
+        this.ctx.fillText('BOULDER DASH', centerX, centerY);
+        this.ctx.shadowBlur = 0;
+        
+        // Subtitle with typewriter effect
+        this.ctx.font = '24px Courier New';
+        this.ctx.fillStyle = '#00ffff';
+        this.ctx.shadowColor = '#00ffff';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillText('★ COLLECT DIAMONDS AND ESCAPE! ★', centerX, centerY + 80);
+        this.ctx.shadowBlur = 0;
+        
+        // Blinking "Press Start" text
+        const blink = Math.floor(time * 2) % 2;
+        if (blink) {
+            this.ctx.font = 'bold 28px Courier New';
+            this.ctx.fillStyle = '#ff00ff';
+            this.ctx.shadowColor = '#ff00ff';
+            this.ctx.shadowBlur = 15;
+            this.ctx.fillText('▶ PRESS START GAME ◀', centerX, centerY + 140);
+            this.ctx.shadowBlur = 0;
+        }
+        
+        // Copyright/credit text
+        this.ctx.font = '16px Courier New';
+        this.ctx.fillStyle = '#888888';
+        this.ctx.fillText('© 1984 RETRO ARCADE CLASSICS', centerX, this.canvas.height - 30);
+        
+        // Animated border effect
+        this.ctx.strokeStyle = `rgba(255, 0, 255, ${glowIntensity})`;
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(10, 10, this.canvas.width - 20, this.canvas.height - 20);
+        
+        // Request next frame for animation
+        if (!this.isRunning) {
+            requestAnimationFrame(() => this.drawTitleScreen());
+        }
     }
 }
 

@@ -92,10 +92,11 @@ export class GamePhysics {
     canRoll(x, y) {
         const element = this.grid[y][x];
         
-        // Check if object is on top of another boulder/diamond or a wall
+        // Check if object is on top of another boulder/diamond, wall, or player
         if (y + 1 >= this.height) return false;
         
         const elementBelow = this.grid[y + 1][x];
+        // Can roll off boulders, diamonds, walls, and player
         if (elementBelow !== ELEMENT_TYPES.BOULDER && 
             elementBelow !== ELEMENT_TYPES.DIAMOND && 
             elementBelow !== ELEMENT_TYPES.WALL && 
@@ -463,27 +464,33 @@ export class GamePhysics {
      * Optimized to use string-based Set lookup
      */
     isPlayerCrushed(playerX, playerY) {
-        // Check cell above the player
+        // Check if there's a falling boulder or diamond directly above the player
         if (playerY > 0) {
             const aboveElement = this.grid[playerY - 1][playerX];
             
+            // Only crush if boulder/diamond is falling AND directly above
             if ((aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) &&
                 this.fallingObjects.has(`${playerX},${playerY - 1}`)) {
                 return true;
             }
         }
         
-        // Check for crushed from sides (boulder rolling)
+        // Check if a boulder just fell onto the player from the side (rolling down)
+        // This only happens if boulder rolled AND is now directly above the player
         if (this.lastUpdatedCell && 
-            this.lastUpdatedCell.type === 'roll' &&
-            this.lastUpdatedCell.y === playerY) {
+            this.lastUpdatedCell.type === 'roll') {
             
-            const cellElement = this.grid[this.lastUpdatedCell.y][this.lastUpdatedCell.x];
+            const rolledX = this.lastUpdatedCell.x;
+            const rolledY = this.lastUpdatedCell.y;
             
-            // If a boulder just rolled adjacent to player
-            if (cellElement === ELEMENT_TYPES.BOULDER && 
-                Math.abs(this.lastUpdatedCell.x - playerX) <= 1) {
-                return true;
+            // Check if the rolled boulder is directly above where player will be next frame
+            // (it will fall next update and crush the player)
+            if (rolledX === playerX && rolledY === playerY - 1) {
+                const cellElement = this.grid[rolledY][rolledX];
+                if (cellElement === ELEMENT_TYPES.BOULDER || cellElement === ELEMENT_TYPES.DIAMOND) {
+                    // Boulder rolled to position above player - it will fall and crush next frame
+                    return true;
+                }
             }
         }
         

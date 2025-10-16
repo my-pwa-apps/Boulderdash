@@ -15,16 +15,16 @@ export const ELEMENT_TYPES = {
     ENEMY: 7
 };
 
-// Colors matching classic Boulder Dash aesthetic
+// Colors matching 80's Namco arcade aesthetic - bright, bold, high contrast
 export const COLORS = {
     EMPTY: '#000000',
-    WALL: '#555555',        // Gray stone
-    DIRT: '#8B4513',        // Brown earth
-    BOULDER: '#A9A9A9',     // Gray boulder
-    DIAMOND: '#00FFFF',     // Cyan diamond
-    EXIT: '#FF00FF',        // Magenta portal
-    PLAYER: '#FFFF00',      // Yellow player
-    ENEMY: '#FF0000'        // Red enemy
+    WALL: '#8B4789',        // Purple brick (Pac-Man maze style)
+    DIRT: '#CD853F',        // Sandy brown earth
+    BOULDER: '#A9A9A9',     // Silver gray boulder
+    DIAMOND: '#00FFFF',     // Bright cyan diamond (classic arcade)
+    EXIT: '#FF00FF',        // Hot magenta portal
+    PLAYER: '#FFFF00',      // Bright yellow player (Pac-Man style)
+    ENEMY: '#FF0000'        // Bright red enemy (arcade villain)
 };
 
 // Game settings balanced for classic Boulder Dash feel
