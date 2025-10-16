@@ -330,109 +330,205 @@ function drawExit(ctx, color) {
 }
 
 /**
- * Draw a procedural player tile
+ * Draw a procedural player tile - Cute miner character inspired by Dig Dug & Mr. Do!
  * @param {CanvasRenderingContext2D} ctx - The canvas context
- * @param {string} color - The main color
+ * @param {string} color - The main color (bright yellow)
  */
 function drawPlayer(ctx, color) {
     const centerX = TILE_SIZE / 2;
     const centerY = TILE_SIZE / 2;
-    const headRadius = TILE_SIZE / 5;
-    const bodyHeight = TILE_SIZE / 2.2;
+    const headRadius = TILE_SIZE / 3.5;
     
-    // Body
-    ctx.fillStyle = color;
-    
-    // Head
+    // === MINING HELMET (with light) ===
+    // Helmet body (red/orange)
+    ctx.fillStyle = '#FF6B35'; // Orange-red helmet
     ctx.beginPath();
-    ctx.arc(centerX, centerY - bodyHeight/3, headRadius, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY - 2, headRadius * 1.3, Math.PI, 0, false);
     ctx.fill();
     
-    // Body
+    // Helmet brim/visor
+    ctx.fillStyle = darkenColor('#FF6B35', 0.7);
+    ctx.fillRect(
+        centerX - headRadius * 1.4,
+        centerY - 2,
+        headRadius * 2.8,
+        headRadius * 0.3
+    );
+    
+    // Helmet light (cute round lamp)
+    ctx.fillStyle = '#FFD700'; // Gold light
+    ctx.beginPath();
+    ctx.arc(centerX, centerY - headRadius * 1.3, headRadius * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Light beam (subtle glow)
+    ctx.fillStyle = 'rgba(255, 255, 100, 0.3)';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY - headRadius * 1.3, headRadius * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // === CUTE ROUND FACE (yellow) ===
+    ctx.fillStyle = color; // Bright yellow face
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, headRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Face highlight (shiny effect)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.beginPath();
+    ctx.arc(centerX - headRadius * 0.3, centerY - headRadius * 0.3, headRadius * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // === BIG CUTE EYES ===
+    const eyeRadius = headRadius / 2.5;
+    const eyeSpacing = headRadius * 0.7;
+    
+    // Left eye white
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(centerX - eyeSpacing, centerY - headRadius * 0.2, eyeRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right eye white
+    ctx.beginPath();
+    ctx.arc(centerX + eyeSpacing, centerY - headRadius * 0.2, eyeRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Left pupil (large and cute)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(centerX - eyeSpacing + eyeRadius * 0.1, centerY - headRadius * 0.15, eyeRadius * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right pupil (large and cute)
+    ctx.beginPath();
+    ctx.arc(centerX + eyeSpacing + eyeRadius * 0.1, centerY - headRadius * 0.15, eyeRadius * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Eye sparkles (makes it lively!)
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(centerX - eyeSpacing + eyeRadius * 0.3, centerY - headRadius * 0.3, eyeRadius * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.arc(centerX + eyeSpacing + eyeRadius * 0.3, centerY - headRadius * 0.3, eyeRadius * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // === HAPPY SMILE ===
+    ctx.strokeStyle = '#FF6B35';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY + headRadius * 0.1, headRadius * 0.5, 0.2 * Math.PI, 0.8 * Math.PI);
+    ctx.stroke();
+    
+    // Rosy cheeks (adorable!)
+    ctx.fillStyle = 'rgba(255, 150, 150, 0.5)';
     ctx.beginPath();
     ctx.ellipse(
-        centerX, centerY + bodyHeight/6,
-        TILE_SIZE/5, bodyHeight/2,
+        centerX - headRadius * 1.1,
+        centerY + headRadius * 0.2,
+        headRadius * 0.3,
+        headRadius * 0.25,
         0, 0, Math.PI * 2
     );
     ctx.fill();
     
-    // Arms
-    const armWidth = TILE_SIZE / 12;
-    const armLength = TILE_SIZE / 3.5;
-    
-    ctx.fillRect(
-        centerX - armLength, 
-        centerY - bodyHeight/8,
-        armLength * 2,
-        armWidth
-    );
-    
-    // Legs
-    const legWidth = TILE_SIZE / 10;
-    const legLength = TILE_SIZE / 3;
-    const legSpacing = TILE_SIZE / 8;
-    
-    // Left leg
-    ctx.fillRect(
-        centerX - legSpacing,
-        centerY + bodyHeight/6,
-        legWidth,
-        legLength
-    );
-    
-    // Right leg
-    ctx.fillRect(
-        centerX + legSpacing - legWidth,
-        centerY + bodyHeight/6,
-        legWidth,
-        legLength
-    );
-    
-    // Add eyes
-    ctx.fillStyle = 'white';
-    const eyeRadius = headRadius / 3;
-    const eyeOffsetX = headRadius / 2;
-    const eyeOffsetY = headRadius / 10;
-    
-    // Left eye
     ctx.beginPath();
-    ctx.arc(
-        centerX - eyeOffsetX, 
-        centerY - bodyHeight/3 - eyeOffsetY,
-        eyeRadius, 0, Math.PI * 2
+    ctx.ellipse(
+        centerX + headRadius * 1.1,
+        centerY + headRadius * 0.2,
+        headRadius * 0.3,
+        headRadius * 0.25,
+        0, 0, Math.PI * 2
     );
     ctx.fill();
     
-    // Right eye
-    ctx.beginPath();
-    ctx.arc(
-        centerX + eyeOffsetX, 
-        centerY - bodyHeight/3 - eyeOffsetY,
-        eyeRadius, 0, Math.PI * 2
+    // === MINER OVERALLS (blue denim style) ===
+    const bodyTop = centerY + headRadius * 0.9;
+    const bodyWidth = headRadius * 1.4;
+    const bodyHeight = TILE_SIZE - bodyTop - 2;
+    
+    // Blue overalls body
+    ctx.fillStyle = '#4A90E2'; // Nice blue color
+    ctx.fillRect(
+        centerX - bodyWidth / 2,
+        bodyTop,
+        bodyWidth,
+        bodyHeight
     );
+    
+    // Overall straps
+    const strapWidth = bodyWidth * 0.2;
+    ctx.fillStyle = darkenColor('#4A90E2', 0.8);
+    
+    // Left strap
+    ctx.fillRect(
+        centerX - bodyWidth * 0.3,
+        bodyTop,
+        strapWidth,
+        bodyHeight * 0.6
+    );
+    
+    // Right strap
+    ctx.fillRect(
+        centerX + bodyWidth * 0.3 - strapWidth,
+        bodyTop,
+        strapWidth,
+        bodyHeight * 0.6
+    );
+    
+    // Strap buttons (gold)
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(centerX - bodyWidth * 0.25, bodyTop + bodyHeight * 0.15, strapWidth * 0.4, 0, Math.PI * 2);
     ctx.fill();
     
-    // Add pupils
-    ctx.fillStyle = 'black';
-    const pupilRadius = eyeRadius / 2;
-    
-    // Left pupil
     ctx.beginPath();
-    ctx.arc(
-        centerX - eyeOffsetX, 
-        centerY - bodyHeight/3 - eyeOffsetY,
-        pupilRadius, 0, Math.PI * 2
-    );
+    ctx.arc(centerX + bodyWidth * 0.25, bodyTop + bodyHeight * 0.15, strapWidth * 0.4, 0, Math.PI * 2);
     ctx.fill();
     
-    // Right pupil
-    ctx.beginPath();
-    ctx.arc(
-        centerX + eyeOffsetX, 
-        centerY - bodyHeight/3 - eyeOffsetY,
-        pupilRadius, 0, Math.PI * 2
+    // Front pocket (detail)
+    ctx.strokeStyle = darkenColor('#4A90E2', 0.6);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+        centerX - bodyWidth * 0.25,
+        bodyTop + bodyHeight * 0.4,
+        bodyWidth * 0.5,
+        bodyHeight * 0.35
     );
+    
+    // === CUTE LITTLE ARMS (holding pickaxe) ===
+    const armColor = color;
+    const armRadius = headRadius * 0.4;
+    
+    // Left arm
+    ctx.fillStyle = armColor;
+    ctx.beginPath();
+    ctx.arc(centerX - bodyWidth * 0.6, bodyTop + bodyHeight * 0.3, armRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right arm
+    ctx.beginPath();
+    ctx.arc(centerX + bodyWidth * 0.6, bodyTop + bodyHeight * 0.3, armRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // === TINY PICKAXE (mining tool) ===
+    // Handle
+    ctx.strokeStyle = '#8B4513'; // Brown handle
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX + bodyWidth * 0.6, bodyTop + bodyHeight * 0.3);
+    ctx.lineTo(centerX + bodyWidth * 0.9, bodyTop - headRadius * 0.3);
+    ctx.stroke();
+    
+    // Pickaxe head
+    ctx.fillStyle = '#A9A9A9'; // Gray metal
+    ctx.beginPath();
+    ctx.moveTo(centerX + bodyWidth * 0.9, bodyTop - headRadius * 0.3);
+    ctx.lineTo(centerX + bodyWidth * 1.1, bodyTop - headRadius * 0.5);
+    ctx.lineTo(centerX + bodyWidth * 0.95, bodyTop - headRadius * 0.2);
+    ctx.closePath();
     ctx.fill();
 }
 

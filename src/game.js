@@ -38,6 +38,7 @@ class Game {
         this.exitOpen = false;
         this.playerDirection = 'RIGHT';
         this.playerNextDirection = null;
+        this.spacePressed = false;
         this.enemies = [];
         this.enemyMoveCounter = 0;
         this.grid = [];
@@ -107,6 +108,15 @@ class Game {
     
     setupEventListeners() {
         window.addEventListener('keydown', (e) => {
+            // Handle space bar for grab action
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                if (this.isRunning && !this.gameOver && !this.levelComplete) {
+                    this.spacePressed = true;
+                }
+                return;
+            }
+            
             const direction = KEY_MAPPINGS[e.key];
             if (direction) {
                 e.preventDefault();
@@ -117,8 +127,16 @@ class Game {
             }
         });
         
+        window.addEventListener('keyup', (e) => {
+            // Release space bar
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                this.spacePressed = false;
+            }
+        });
+        
         window.addEventListener('keydown', (e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 's', 'S', 'a', 'A', 'd', 'D'].includes(e.key)) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 's', 'S', 'a', 'A', 'd', 'D', ' '].includes(e.key)) {
                 e.preventDefault();
             }
         });
@@ -133,15 +151,22 @@ class Game {
     
     handleResize() {
         const container = this.canvas.parentElement;
-        const maxWidth = container.clientWidth;
-        const maxHeight = container.clientHeight;
+        if (!container) return;
+        
+        // Get container dimensions with padding considered
+        const containerRect = container.getBoundingClientRect();
+        const maxWidth = containerRect.width - 20; // Account for padding
+        const maxHeight = window.innerHeight * 0.6; // Max 60% of viewport height
+        
         const aspectRatio = this.canvas.width / this.canvas.height;
-        let width = maxWidth;
+        let width = Math.min(maxWidth, this.canvas.width);
         let height = width / aspectRatio;
+        
         if (height > maxHeight) {
             height = maxHeight;
             width = height * aspectRatio;
         }
+        
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
     }
@@ -261,7 +286,12 @@ class Game {
         }
         
         if (this.playerNextDirection) {
-            this.handlePlayerMove(this.playerNextDirection);
+            // If space is pressed, grab item instead of moving
+            if (this.spacePressed) {
+                this.handlePlayerGrab(this.playerNextDirection);
+            } else {
+                this.handlePlayerMove(this.playerNextDirection);
+            }
             this.playerNextDirection = null;
         }
         
@@ -320,6 +350,23 @@ class Game {
                 this.handlePlayerDeath('Enemy contact!');
             }
             
+            this.updateHUD();
+        }
+    }
+    
+    handlePlayerGrab(direction) {
+        if (!this.physics) return;
+        this.playerDirection = direction;
+        const result = this.physics.grabItem(this.playerPosition.x, this.playerPosition.y, direction);
+        
+        if (result.collected) {
+            this.diamondsCollected++;
+            this.score += GAME_SETTINGS.DIAMOND_VALUE;
+            this.sound.play('collect');
+            if (this.diamondsCollected >= this.requiredDiamonds) {
+                this.exitOpen = true;
+                this.sound.play('exit');
+            }
             this.updateHUD();
         }
     }

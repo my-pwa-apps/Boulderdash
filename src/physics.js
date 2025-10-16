@@ -257,6 +257,55 @@ export class GamePhysics {
     }
     
     /**
+     * Grab an item in a direction without moving (classic Boulder Dash mechanic)
+     * @param {number} playerX - Player's current x coordinate
+     * @param {number} playerY - Player's current y coordinate
+     * @param {string} direction - Direction to grab ('UP', 'DOWN', 'LEFT', 'RIGHT')
+     * @returns {Object} - Result with collected flag
+     */
+    grabItem(playerX, playerY, direction) {
+        console.log(`Player grabbing in direction ${direction} from ${playerX}, ${playerY}`);
+        
+        // Validate input coordinates
+        if (!isInBounds(playerX, playerY, this.width, this.height)) {
+            console.error(`Invalid player position: ${playerX}, ${playerY}`);
+            return { collected: false };
+        }
+
+        const dir = DIRECTIONS[direction];
+        if (!dir) {
+            console.error(`Invalid direction: ${direction}`);
+            return { collected: false };
+        }
+
+        const targetX = playerX + dir.x;
+        const targetY = playerY + dir.y;
+
+        // Check if the target is valid
+        if (!isInBounds(targetX, targetY, this.width, this.height)) {
+            console.log(`Cannot grab: out of bounds`);
+            return { collected: false };
+        }
+
+        const targetElement = this.grid[targetY][targetX];
+
+        // Result object
+        const result = {
+            collected: false
+        };
+
+        // Can only grab dirt or diamonds
+        if (targetElement === ELEMENT_TYPES.DIRT || targetElement === ELEMENT_TYPES.DIAMOND) {
+            // Remove the item without moving player
+            this.grid[targetY][targetX] = ELEMENT_TYPES.EMPTY;
+            result.collected = (targetElement === ELEMENT_TYPES.DIAMOND);
+            console.log(`Grabbed ${targetElement === ELEMENT_TYPES.DIAMOND ? 'diamond' : 'dirt'}`);
+        }
+
+        return result;
+    }
+    
+    /**
      * Try to push a boulder in a direction
      * @param {number} x - Boulder's x coordinate
      * @param {number} y - Boulder's y coordinate
@@ -464,33 +513,23 @@ export class GamePhysics {
      * Optimized to use string-based Set lookup
      */
     isPlayerCrushed(playerX, playerY) {
+        // Check if there's a boulder or diamond ON the player's position
+        // This happens when a falling object lands on them
+        const playerElement = this.grid[playerY][playerX];
+        if (playerElement === ELEMENT_TYPES.BOULDER || playerElement === ELEMENT_TYPES.DIAMOND) {
+            // Something fell on the player
+            return true;
+        }
+        
         // Check if there's a falling boulder or diamond directly above the player
+        // that is currently in motion (about to land on them)
         if (playerY > 0) {
             const aboveElement = this.grid[playerY - 1][playerX];
             
-            // Only crush if boulder/diamond is falling AND directly above
+            // Only crush if boulder/diamond is actively falling AND directly above
             if ((aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) &&
                 this.fallingObjects.has(`${playerX},${playerY - 1}`)) {
                 return true;
-            }
-        }
-        
-        // Check if a boulder just fell onto the player from the side (rolling down)
-        // This only happens if boulder rolled AND is now directly above the player
-        if (this.lastUpdatedCell && 
-            this.lastUpdatedCell.type === 'roll') {
-            
-            const rolledX = this.lastUpdatedCell.x;
-            const rolledY = this.lastUpdatedCell.y;
-            
-            // Check if the rolled boulder is directly above where player will be next frame
-            // (it will fall next update and crush the player)
-            if (rolledX === playerX && rolledY === playerY - 1) {
-                const cellElement = this.grid[rolledY][rolledX];
-                if (cellElement === ELEMENT_TYPES.BOULDER || cellElement === ELEMENT_TYPES.DIAMOND) {
-                    // Boulder rolled to position above player - it will fall and crush next frame
-                    return true;
-                }
             }
         }
         

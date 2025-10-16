@@ -12,11 +12,13 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    padding: 20px;
+    padding: 10px;
+    margin: 0;
     background: 
         repeating-linear-gradient(0deg, #000 0px, #000 2px, #111 2px, #111 4px),
         radial-gradient(ellipse at center, #1a0033 0%, #000000 100%);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
@@ -28,12 +30,12 @@ body {
     align-items: center;
     background-color: #000;
     border-radius: 0;
-    padding: 30px;
+    padding: 20px;
     box-shadow: 
         0 0 50px rgba(255, 0, 255, 0.3),
         0 0 100px rgba(0, 255, 255, 0.2),
         inset 0 0 100px rgba(0, 0, 0, 0.5);
-    max-width: 1000px;
+    max-width: min(1200px, 100vw);
     width: 100%;
     position: relative;
     border: 4px solid #ff00ff;
@@ -69,14 +71,14 @@ body {
 
 h1 {
     color: #ffff00;
-    font-size: 3rem;
+    font-size: clamp(1.5rem, 5vw, 3rem);
     margin-bottom: 15px;
     text-shadow: 
         3px 3px 0 #ff00ff,
         6px 6px 0 #00ffff,
         0 0 20px #ffff00,
         0 0 40px #ffff00;
-    letter-spacing: 8px;
+    letter-spacing: clamp(2px, 1vw, 8px);
     font-weight: 900;
     text-transform: uppercase;
     position: relative;
@@ -114,13 +116,15 @@ h1 {
 
 .game-info {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-around;
+    gap: 10px;
     width: 100%;
     background-color: #000;
     padding: 15px;
     border-radius: 0;
     margin-bottom: 15px;
-    font-size: 1.3rem;
+    font-size: clamp(0.9rem, 2vw, 1.3rem);
     background: #000;
     box-shadow: 
         inset 0 0 20px rgba(255, 0, 255, 0.3),
@@ -136,6 +140,9 @@ h1 {
     text-transform: uppercase;
     letter-spacing: 2px;
     font-family: 'Courier New', monospace;
+    flex: 1 1 auto;
+    min-width: 120px;
+    text-align: center;
 }
 
 #score {
@@ -174,11 +181,13 @@ h1 {
         0 0 60px rgba(0, 255, 255, 0.4),
         inset 0 0 50px rgba(0, 0, 0, 0.8);
     max-width: 100%;
+    width: 100%;
     height: auto;
     border-radius: 0;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
+    display: block;
 }
 
 .game-controls {
@@ -187,7 +196,7 @@ h1 {
     flex-direction: column;
     align-items: center;
     margin-top: 20px;
-    padding: 20px;
+    padding: 15px;
     background-color: rgba(0, 0, 0, 0.5);
     border-radius: 0;
     border: 2px solid #00ffff;
@@ -197,6 +206,7 @@ h1 {
     text-align: center;
     margin-bottom: 15px;
     position: relative;
+    width: 100%;
 }
 
 .controls-info p {
@@ -206,16 +216,16 @@ h1 {
     letter-spacing: 2px;
     font-weight: 900;
     text-shadow: 0 0 10px #ffff00;
-    font-size: 1.1rem;
+    font-size: clamp(0.8rem, 2vw, 1.1rem);
 }
 
 button {
     background: #ff00ff;
     color: #ffff00;
     border: 3px solid #ffff00;
-    padding: 15px 30px;
+    padding: clamp(10px, 2vw, 15px) clamp(20px, 4vw, 30px);
     margin: 10px;
-    font-size: 1.3rem;
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
     border-radius: 0;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -425,4 +435,87 @@ body::after {
 .help-close {
     display: block;
     margin: 20px auto 0;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    body {
+        padding: 5px;
+    }
+    
+    .game-container {
+        padding: 10px;
+        border-width: 2px;
+    }
+    
+    h1 {
+        margin-bottom: 10px;
+    }
+    
+    .game-info {
+        padding: 10px;
+        gap: 5px;
+    }
+    
+    .game-info div {
+        padding: 5px 10px;
+        min-width: 80px;
+        letter-spacing: 1px;
+    }
+    
+    #gameCanvas {
+        border-width: 2px;
+    }
+    
+    .game-controls {
+        padding: 10px;
+        margin-top: 10px;
+    }
+    
+    button {
+        margin: 5px;
+        padding: 10px 20px;
+    }
+    
+    #helpModal {
+        width: 90%;
+        padding: 20px;
+    }
+    
+    .help-title {
+        font-size: 1.5rem;
+        letter-spacing: 2px;
+    }
+    
+    .help-list {
+        padding: 0 10px;
+    }
+    
+    .help-list li {
+        font-size: 0.95rem;
+        margin-bottom: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .game-container {
+        padding: 5px;
+    }
+    
+    .game-info {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .game-info div {
+        margin: 3px 0;
+    }
+    
+    .help-title {
+        font-size: 1.2rem;
+    }
+    
+    .help-list li {
+        font-size: 0.85rem;
+    }
 }
