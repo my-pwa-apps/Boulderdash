@@ -1,5 +1,5 @@
 // Game constants
-export const TILE_SIZE = 24; // Reduced for better scaling
+export const TILE_SIZE = 24;
 export const GRID_WIDTH = 40;
 export const GRID_HEIGHT = 22;
 
@@ -15,26 +15,26 @@ export const ELEMENT_TYPES = {
     ENEMY: 7
 };
 
-// Colors for procedurally generated elements
+// Colors matching classic Boulder Dash aesthetic
 export const COLORS = {
     EMPTY: '#000000',
-    WALL: '#555555',
-    DIRT: '#8B4513',
-    BOULDER: '#A9A9A9',
-    DIAMOND: '#00FFFF',
-    EXIT: '#FF00FF',
-    PLAYER: '#FFFF00',
-    ENEMY: '#FF0000'
+    WALL: '#555555',        // Gray stone
+    DIRT: '#8B4513',        // Brown earth
+    BOULDER: '#A9A9A9',     // Gray boulder
+    DIAMOND: '#00FFFF',     // Cyan diamond
+    EXIT: '#FF00FF',        // Magenta portal
+    PLAYER: '#FFFF00',      // Yellow player
+    ENEMY: '#FF0000'        // Red enemy
 };
 
-// Game settings
+// Game settings balanced for classic Boulder Dash feel
 export const GAME_SETTINGS = {
-    DIAMOND_VALUE: 10,
-    REQUIRED_DIAMONDS_PERCENT: 0.75, // Reduced to make levels easier
-    INITIAL_TIME: 150, // Increased for more relaxed gameplay
-    ENEMY_SPEED: 0.4, // Slightly slower enemies
-    BOULDER_FALL_SPEED: 4, // Faster falling boulders
-    LEVEL_COUNT: 10 // Increased level count
+    DIAMOND_VALUE: 10,              // Points per diamond
+    REQUIRED_DIAMONDS_PERCENT: 0.7, // Need 70% of diamonds
+    INITIAL_TIME: 180,              // 3 minutes initial time
+    ENEMY_SPEED: 0.4,               // Balanced enemy speed
+    BOULDER_FALL_SPEED: 4,          // Natural falling speed
+    LEVEL_COUNT: 10                 // Total levels
 };
 
 // Direction constants
@@ -52,7 +52,11 @@ export const KEY_MAPPINGS = {
     ArrowLeft: 'LEFT',
     ArrowRight: 'RIGHT',
     w: 'UP',
+    W: 'UP',
     s: 'DOWN',
+    S: 'DOWN',
     a: 'LEFT',
-    d: 'RIGHT'
+    A: 'LEFT',
+    d: 'RIGHT',
+    D: 'RIGHT'
 };

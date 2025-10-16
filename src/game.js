@@ -2,134 +2,64 @@ import { generateAssets } from './assets.js';
 import { generateLevel } from './level-generator.js';
 import { GamePhysics } from './physics.js';
 import { SoundManager } from './sound.js';
-import { 
-    TILE_SIZE, 
-    GRID_WIDTH, 
-    GRID_HEIGHT, 
-    ELEMENT_TYPES,
-    KEY_MAPPINGS,
-    GAME_SETTINGS,
-    DIRECTIONS
-} from './constants.js';
+import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS } from './constants.js';
 import { formatTime } from './utils.js';
 
-/**
- * Main game class
- */
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        
-        // Set canvas size based on grid dimensions
         this.canvas.width = GRID_WIDTH * TILE_SIZE;
         this.canvas.height = GRID_HEIGHT * TILE_SIZE;
-        
-        // Add visual effect properties first so they're available
         this.screenShake = 0;
-        this.screenShakeIntensity = 0;
-        this.gameTime = 0; // For various timing effects
+        this.gameTime = 0;
         this.playerAnimationFrame = 0;
         this.playerAnimationCounter = 0;
-        
-        // Background pattern needs to be created after canvas context is available
+        this.particles = [];
         this.backgroundPattern = this.createBackgroundPattern();
-        
-        // DOM elements
         this.scoreElement = document.getElementById('score');
         this.diamondsElement = document.getElementById('diamonds');
         this.timeElement = document.getElementById('time');
         this.levelElement = document.getElementById('level');
         this.startButton = document.getElementById('startButton');
         this.restartButton = document.getElementById('restartButton');
-        
-        // Create mute button
-        this.createMuteButton();
-        
-        // Game state
+        this.helpButton = document.getElementById('helpButton');
+        this.helpModal = document.getElementById('helpModal');
+        this.closeHelpButton = document.getElementById('closeHelpButton');
         this.isRunning = false;
         this.gameOver = false;
+        this.levelComplete = false;
         this.level = 1;
         this.score = 0;
         this.diamondsCollected = 0;
         this.requiredDiamonds = 0;
-        this.totalDiamonds = 0;
         this.timeRemaining = GAME_SETTINGS.INITIAL_TIME;
-        
-        // Player state
         this.playerPosition = { x: 0, y: 0 };
         this.exitOpen = false;
-        this.playerDirection = 'RIGHT'; // For animation
-        
-        // Enemy state
+        this.playerDirection = 'RIGHT';
+        this.playerNextDirection = null;
         this.enemies = [];
         this.enemyMoveCounter = 0;
-        
-        // Animation frame ID for cancellation
+        this.grid = [];
+        this.physics = null;
+        this.exitPosition = null;
         this.animationFrameId = null;
-        
-        // Timer ID for game clock
         this.timerInterval = null;
-        
-        // Physics step counter
-        this.physicsStep = 0;
-        
-        // Animation counter
-        this.animationCounter = 0;
-        
-        // Particle effects system
-        this.particles = [];
-        
-        // Load assets
+        this.physicsAccumulator = 0;
+        this.lastUpdateTime = 0;
         this.sprites = generateAssets();
-        
-        // Initialize sound manager
         this.sound = new SoundManager();
-        
-        // Set up input handling
+        this.createMuteButton();
         this.setupEventListeners();
-          // Set up the initial screen
-        this.startButton.addEventListener('click', () => this.startGame());
-        this.restartButton.addEventListener('click', () => this.restartGame());
-        
-        // Help modal functionality
-        this.helpButton = document.getElementById('helpButton');
-        this.helpModal = document.getElementById('helpModal');
-        this.closeHelpButton = document.getElementById('closeHelpButton');
-        
-        this.helpButton.addEventListener('click', () => {
-            this.helpModal.style.display = 'block';
-            if (this.isRunning) {
-                this.pauseGame();
-            }
-        });
-        
-        this.closeHelpButton.addEventListener('click', () => {
-            this.helpModal.style.display = 'none';
-            if (!this.gameOver && !this.isRunning) {
-                this.resumeGame();
-            }
-        });
-        
-        // Initialize the title screen properly using requestAnimationFrame
-        // This ensures all methods are properly defined before calling
-        requestAnimationFrame(() => {
-            this.drawTitleScreen();
-        });
+        this.setupButtonListeners();
+        requestAnimationFrame(() => this.drawTitleScreen());
     }
     
-    /**
-     * Create a background pattern for the game
-     * @returns {CanvasPattern} - The created pattern
-     */
     createBackgroundPattern() {
-        // Create a small canvas for the pattern
         const patternCanvas = document.createElement('canvas');
         patternCanvas.width = 20;
         patternCanvas.height = 20;
         const patternCtx = patternCanvas.getContext('2d');
-        
-        // Draw a subtle grid pattern
         patternCtx.fillStyle = '#0a0a0a';
         patternCtx.fillRect(0, 0, 20, 20);
         patternCtx.strokeStyle = '#1a1a1a';
@@ -140,575 +70,428 @@ class Game {
         patternCtx.moveTo(0, 0);
         patternCtx.lineTo(0, 20);
         patternCtx.stroke();
-        
-        // Create and return the pattern
         return this.ctx.createPattern(patternCanvas, 'repeat');
     }
     
-    /**
-     * Create mute button
-     */
     createMuteButton() {
         this.muteButton = document.createElement('button');
         this.muteButton.id = 'muteButton';
-        this.muteButton.textContent = '🔊';
+        this.muteButton.textContent = '';
         this.muteButton.title = 'Mute/Unmute Sound';
         this.muteButton.style.position = 'absolute';
         this.muteButton.style.top = '10px';
         this.muteButton.style.right = '10px';
-        
         const controlsDiv = document.querySelector('.controls-info');
-        controlsDiv.appendChild(this.muteButton);
-        
+        if (controlsDiv) controlsDiv.appendChild(this.muteButton);
         this.muteButton.addEventListener('click', () => {
             const muted = this.sound.toggleMute();
             this.muteButton.textContent = muted ? '🔇' : '🔊';
         });
     }
     
-    /**
-     * Set up event listeners for keyboard input
-     */
+    setupButtonListeners() {
+        this.startButton.addEventListener('click', () => this.startGame());
+        this.restartButton.addEventListener('click', () => this.restartGame());
+        this.helpButton.addEventListener('click', () => {
+            this.helpModal.style.display = 'block';
+            if (this.isRunning) this.pauseGame();
+        });
+        this.closeHelpButton.addEventListener('click', () => {
+            this.helpModal.style.display = 'none';
+        });
+    }
+    
     setupEventListeners() {
         window.addEventListener('keydown', (e) => {
-            if (!this.isRunning || this.gameOver) return;
-            
-            // Handle directional input
+            if (!this.isRunning || this.gameOver || this.levelComplete) return;
             const direction = KEY_MAPPINGS[e.key];
             if (direction) {
                 e.preventDefault();
-                this.handlePlayerMove(direction);
+                this.playerNextDirection = direction;
             }
         });
         
-        // Prevent page scrolling with arrow keys
         window.addEventListener('keydown', (e) => {
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
                 e.preventDefault();
             }
         }, { passive: false });
         
-        // Handle window resize
         window.addEventListener('resize', () => this.handleResize());
-        
-        // Handle visibility change to pause game when tab is not active
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden && this.isRunning) {
+            if (document.hidden && this.isRunning && !this.gameOver) {
                 this.pauseGame();
             }
         });
     }
     
-    /**
-     * Handle window resize
-     */
     handleResize() {
-        // Maintain aspect ratio while fitting the canvas to the container
         const container = this.canvas.parentElement;
         const maxWidth = container.clientWidth;
         const maxHeight = container.clientHeight;
-        
         const aspectRatio = this.canvas.width / this.canvas.height;
-        
-        // Calculate dimensions to maintain aspect ratio
         let width = maxWidth;
         let height = width / aspectRatio;
-        
         if (height > maxHeight) {
             height = maxHeight;
             width = height * aspectRatio;
         }
-        
-        // Apply CSS scaling
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
     }
     
-    /**
-     * Start a new game
-     */
     startGame() {
         this.level = 1;
         this.score = 0;
         this.isRunning = true;
         this.gameOver = false;
-        
+        this.levelComplete = false;
         this.startButton.style.display = 'none';
         this.restartButton.style.display = 'inline-block';
-        
+        this.helpModal.style.display = 'none';
         this.loadLevel(this.level);
         this.startTimer();
         this.gameLoop();
-        
-        // Initial resize
         this.handleResize();
     }
     
-    /**
-     * Restart the current game
-     */
     restartGame() {
         this.stopTimer();
+        if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
         this.startGame();
     }
     
-    /**
-     * Pause the game
-     */
     pauseGame() {
         if (!this.isRunning) return;
-        
         this.isRunning = false;
         this.stopTimer();
-        
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
-        
-        // Display pause message
-        this.renderMessage('GAME PAUSED', 'Press any key to continue');
-        
-        // Resume on any key press
-        const resumeHandler = (e) => {
-            window.removeEventListener('keydown', resumeHandler);
-            if (!this.gameOver) {
-                this.resumeGame();
-            }
-        };
-        
-        window.addEventListener('keydown', resumeHandler);
     }
     
-    /**
-     * Resume the game after pause
-     */
     resumeGame() {
         if (this.isRunning) return;
-        
         this.isRunning = true;
         this.startTimer();
         this.gameLoop();
     }
     
-    /**
-     * Start the game timer
-     */
     startTimer() {
         this.stopTimer();
-        
         if (!this.timeRemaining) {
             this.timeRemaining = GAME_SETTINGS.INITIAL_TIME + (this.level * 30);
         }
-        
         this.timerInterval = setInterval(() => {
-            if (this.isRunning && !this.gameOver) {
+            if (this.isRunning && !this.gameOver && !this.levelComplete) {
                 this.timeRemaining--;
                 this.updateHUD();
-                
                 if (this.timeRemaining <= 0) {
                     this.handlePlayerDeath("Time's up!");
                 }
-                
-                // Flash time when low
                 if (this.timeRemaining <= 15) {
-                    this.timeElement.style.color = this.timeRemaining % 2 === 0 ? '#ff5555' : 'white';
+                    this.timeElement.style.color = this.timeRemaining % 2 === 0 ? '#ff5555' : '#ffcc00';
                 }
             }
         }, 1000);
     }
     
-    /**
-     * Stop the game timer
-     */
     stopTimer() {
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
         }
     }
-      /**
-     * Load a level
-     * @param {number} levelNumber - The level number to load
-     */
+    
     loadLevel(levelNumber) {
-        // Generate the level
         const levelData = generateLevel(levelNumber);
-        
-        // Set up game state
         this.grid = levelData.grid;
-        this.playerPosition = { ...levelData.playerPosition }; // Make a copy to avoid reference issues
+        this.playerPosition = { ...levelData.playerPosition };
         this.exitPosition = levelData.exitPosition;
         this.enemies = levelData.enemies;
         this.requiredDiamonds = levelData.requiredDiamonds;
-        this.totalDiamonds = levelData.diamonds.length;
         this.diamondsCollected = 0;
         this.exitOpen = false;
         this.particles = [];
+        this.playerAnimationFrame = 0;
+        this.playerAnimationCounter = 0;
         
-        // Create physics engine
         this.physics = new GamePhysics(this.grid);
-        
-        // Explicitly ensure player position is set in both grids
         const { x, y } = this.playerPosition;
-        
-        // Set player in game grid
         this.grid[y][x] = ELEMENT_TYPES.PLAYER;
-        
-        // Set player in physics grid
         this.physics.setCell(x, y, ELEMENT_TYPES.PLAYER);
-        
-        console.log(`Player position set at: ${x}, ${y}`); // Debug log
-        
-        // Update HUD
         this.updateHUD();
     }
     
-    /**
-     * Update the heads-up display
-     */
     updateHUD() {
         this.scoreElement.textContent = `Score: ${this.score}`;
         this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
         this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
         this.levelElement.textContent = `Level: ${this.level}`;
+        this.timeElement.style.color = '#ffcc00';
     }
     
-    /**
-     * Main game loop with optimized rendering
-     */
     gameLoop() {
         if (!this.isRunning) return;
         
         const now = performance.now();
         const deltaTime = now - (this.lastUpdateTime || now);
         this.lastUpdateTime = now;
+        const cappedDelta = Math.min(deltaTime, 33);
+        this.gameTime += cappedDelta / 16;
         
-        // Cap delta time to avoid large jumps after tab switch
-        const cappedDelta = Math.min(deltaTime, 33); // Max ~30 FPS worth of updates
-        
-        // Update game time
-        this.gameTime += cappedDelta / 16; // Normalize time increment
-        
-        // Update physics at a fixed rate to ensure consistent behavior
         this.physicsAccumulator = (this.physicsAccumulator || 0) + cappedDelta;
-        const physicsStep = 50; // ms between physics updates
-        
-        // Run physics updates at fixed intervals
+        const physicsStep = 50;
         while (this.physicsAccumulator >= physicsStep) {
             this.updatePhysics();
             this.physicsAccumulator -= physicsStep;
         }
         
-        // Update enemies periodically with time-based movement
         this.enemyMoveCounter += cappedDelta;
-        if (this.enemyMoveCounter >= 400) { // 400ms between enemy updates
+        if (this.enemyMoveCounter >= 400) {
             this.updateEnemies();
             this.enemyMoveCounter = 0;
         }
         
-        // Update animations based on elapsed time
-        this.animationCounter += cappedDelta;
-        if (this.animationCounter > 1000) { // 1 second animation cycle
-            this.animationCounter = 0;
+        if (this.playerNextDirection) {
+            this.handlePlayerMove(this.playerNextDirection);
+            this.playerNextDirection = null;
         }
         
-        // Update player animation
         this.playerAnimationCounter += cappedDelta;
-        if (this.playerAnimationCounter > 150) { // 150ms per frame
+        if (this.playerAnimationCounter > 150) {
             this.playerAnimationCounter = 0;
             this.playerAnimationFrame = (this.playerAnimationFrame + 1) % 4;
         }
         
-        // Update screen shake with time decay
         if (this.screenShake > 0) {
-            this.screenShake -= cappedDelta / 20; // Decay based on time
+            this.screenShake -= cappedDelta / 20;
         }
         
-        // Update particles with time-based movement
         this.updateParticles(cappedDelta / 16);
-        
-        // Check for player crushing
-        this.checkPlayerStatus();
-        
-        // Only render at display refresh rate
         this.render();
-        
-        // Request next frame
         this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     }
     
-    /**
-     * Create a crash animation at the specified position
-     * @param {number} x - The x coordinate of the crash
-     * @param {number} y - The y coordinate of the crash
-     */
-    createCrashAnimation(x, y) {
-        const centerX = x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = y * TILE_SIZE + TILE_SIZE / 2;
-        
-        // Add screen shake
-        this.screenShake = 20;
-        this.screenShakeIntensity = 5;
-
-        // Create explosion-like particles
-        for (let i = 0; i < 30; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 5 + 2;
-            const size = Math.random() * 5 + 3;
-            const life = Math.random() * 40 + 30;
-            
-            // Debris particles
-            this.particles.push({
-                x: centerX,
-                y: centerY,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                color: i % 3 === 0 ? '#ff8800' : (i % 3 === 1 ? '#ffcc00' : '#ff3300'),
-                size: size,
-                life: life,
-                gravity: 0.2,
-                type: 'debris'
-            });
-        }
-        
-        // Add dust cloud
-        for (let i = 0; i < 15; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 20;
-            const speed = Math.random() * 1.5;
-            
-            this.particles.push({
-                x: centerX + Math.cos(angle) * distance,
-                y: centerY + Math.sin(angle) * distance,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                color: '#aaaaaa',
-                size: Math.random() * 8 + 4,
-                life: Math.random() * 60 + 30,
-                gravity: 0.05,
-                type: 'dust',
-                opacity: 0.7
-            });
+    updatePhysics() {
+        if (!this.physics) return;
+        this.physics.update();
+        if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
+            this.handlePlayerDeath('Crushed!');
         }
     }
     
-    /**
-     * Update particle effects
-     * @param {number} dt - Time delta (in arbitrary units)
-     */
+    handlePlayerMove(direction) {
+        if (!this.physics) return;
+        this.playerDirection = direction;
+        const result = this.physics.movePlayer(this.playerPosition.x, this.playerPosition.y, direction);
+        
+        if (result.success) {
+            this.playerPosition.x = result.newX;
+            this.playerPosition.y = result.newY;
+            
+            if (result.collected) {
+                this.diamondsCollected++;
+                this.score += GAME_SETTINGS.DIAMOND_VALUE;
+                this.sound.play('collect');
+                if (this.diamondsCollected >= this.requiredDiamonds) {
+                    this.exitOpen = true;
+                    this.sound.play('exit');
+                }
+            }
+            
+            if (result.exit && this.exitOpen) {
+                this.completeLevel();
+            }
+            
+            if (result.crushed) {
+                this.handlePlayerDeath('Enemy contact!');
+            }
+            
+            this.updateHUD();
+        }
+    }
+    
+    updateEnemies() {
+        if (!this.physics) return;
+        this.enemies = this.physics.moveEnemies(this.enemies, this.playerPosition.x, this.playerPosition.y);
+        
+        if (this.physics.checkEnemyCollision(this.playerPosition.x, this.playerPosition.y, this.enemies)) {
+            this.handlePlayerDeath('Enemy contact!');
+        }
+        
+        const crushedEnemies = this.physics.checkEnemiesCrushed(this.enemies);
+        for (const idx of crushedEnemies.reverse()) {
+            this.createCrashAnimation(this.enemies[idx].x, this.enemies[idx].y);
+            this.sound.play('crush');
+            this.score += 100;
+            this.enemies.splice(idx, 1);
+        }
+    }
+    
+    handlePlayerDeath(reason) {
+        this.sound.play('crush');
+        this.gameOver = true;
+        this.isRunning = false;
+        this.stopTimer();
+    }
+    
+    completeLevel() {
+        this.sound.play('complete');
+        this.levelComplete = true;
+        this.isRunning = false;
+        this.stopTimer();
+        this.score += this.timeRemaining * 5;
+        this.updateHUD();
+        setTimeout(() => {
+            if (this.levelComplete) this.nextLevel();
+        }, 3000);
+    }
+    
+    nextLevel() {
+        this.level++;
+        this.levelComplete = false;
+        this.gameOver = false;
+        this.isRunning = true;
+        this.timeRemaining = 0;
+        this.loadLevel(this.level);
+        this.startTimer();
+        this.gameLoop();
+    }
+    
     updateParticles(dt) {
-        // Update all particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             p.vy += (p.gravity || 0) * dt;
             p.life -= dt;
-            if (p.life <= 0) {
-                this.particles.splice(i, 1);
-            }
+            if (p.life <= 0) this.particles.splice(i, 1);
         }
-    }
-
-    /**
-     * Check the player's status (e.g., if crushed or dead)
-     * Stub implementation to prevent errors.
-     */
-    checkPlayerStatus() {
-        // TODO: Implement player status checks (e.g., crushed, dead, etc.)
     }
     
-    /**
-     * Load a level
-     * @param {number} levelNumber - The level number to load
-     */
-    loadLevel(levelNumber) {
-        // Generate the level
-        const levelData = generateLevel(levelNumber);
-        
-        // Set up game state
-        this.grid = levelData.grid;
-        this.playerPosition = { ...levelData.playerPosition }; // Make a copy to avoid reference issues
-        this.exitPosition = levelData.exitPosition;
-        this.enemies = levelData.enemies;
-        this.requiredDiamonds = levelData.requiredDiamonds;
-        this.totalDiamonds = levelData.diamonds.length;
-        this.diamondsCollected = 0;
-        this.exitOpen = false;
-        this.particles = [];
-        
-        // Create physics engine
-        this.physics = new GamePhysics(this.grid);
-        
-        // Explicitly ensure player position is set in both grids
-        const { x, y } = this.playerPosition;
-        
-        // Set player in game grid
-        this.grid[y][x] = ELEMENT_TYPES.PLAYER;
-        
-        // Set player in physics grid
-        this.physics.setCell(x, y, ELEMENT_TYPES.PLAYER);
-        
-        console.log(`Player position set at: ${x}, ${y}`); // Debug log
-        
-        // Update HUD
-        this.updateHUD();
-    }
-    
-    /**
-     * Update the heads-up display
-     */
-    updateHUD() {
-        this.scoreElement.textContent = `Score: ${this.score}`;
-        this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
-        this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
-        this.levelElement.textContent = `Level: ${this.level}`;
-    }
-    
-    /**
-     * Main game loop with optimized rendering
-     */
-    gameLoop() {
-        if (!this.isRunning) return;
-        
-        const now = performance.now();
-        const deltaTime = now - (this.lastUpdateTime || now);
-        this.lastUpdateTime = now;
-        
-        // Cap delta time to avoid large jumps after tab switch
-        const cappedDelta = Math.min(deltaTime, 33); // Max ~30 FPS worth of updates
-        
-        // Update game time
-        this.gameTime += cappedDelta / 16; // Normalize time increment
-        
-        // Update physics at a fixed rate to ensure consistent behavior
-        this.physicsAccumulator = (this.physicsAccumulator || 0) + cappedDelta;
-        const physicsStep = 50; // ms between physics updates
-        
-        // Run physics updates at fixed intervals
-        while (this.physicsAccumulator >= physicsStep) {
-            this.updatePhysics();
-            this.physicsAccumulator -= physicsStep;
-        }
-        
-        // Update enemies periodically with time-based movement
-        this.enemyMoveCounter += cappedDelta;
-        if (this.enemyMoveCounter >= 400) { // 400ms between enemy updates
-            this.updateEnemies();
-            this.enemyMoveCounter = 0;
-        }
-        
-        // Update animations based on elapsed time
-        this.animationCounter += cappedDelta;
-        if (this.animationCounter > 1000) { // 1 second animation cycle
-            this.animationCounter = 0;
-        }
-        
-        // Update player animation
-        this.playerAnimationCounter += cappedDelta;
-        if (this.playerAnimationCounter > 150) { // 150ms per frame
-            this.playerAnimationCounter = 0;
-            this.playerAnimationFrame = (this.playerAnimationFrame + 1) % 4;
-        }
-        
-        // Update screen shake with time decay
-        if (this.screenShake > 0) {
-            this.screenShake -= cappedDelta / 20; // Decay based on time
-        }
-        
-        // Update particles with time-based movement
-        this.updateParticles(cappedDelta / 16);
-        
-        // Check for player crushing
-        this.checkPlayerStatus();
-        
-        // Only render at display refresh rate
-        this.render();
-        
-        // Request next frame
-        this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
-    }
-    
-    /**
-     * Create a crash animation at the specified position
-     * @param {number} x - The x coordinate of the crash
-     * @param {number} y - The y coordinate of the crash
-     */
     createCrashAnimation(x, y) {
         const centerX = x * TILE_SIZE + TILE_SIZE / 2;
         const centerY = y * TILE_SIZE + TILE_SIZE / 2;
-        
-        // Add screen shake
         this.screenShake = 20;
-        this.screenShakeIntensity = 5;
-
-        // Create explosion-like particles
+        
         for (let i = 0; i < 30; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = Math.random() * 5 + 2;
             const size = Math.random() * 5 + 3;
             const life = Math.random() * 40 + 30;
-            
-            // Debris particles
             this.particles.push({
-                x: centerX,
-                y: centerY,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
+                x: centerX, y: centerY,
+                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
                 color: i % 3 === 0 ? '#ff8800' : (i % 3 === 1 ? '#ffcc00' : '#ff3300'),
-                size: size,
-                life: life,
-                gravity: 0.2,
-                type: 'debris'
+                size: size, life: life, gravity: 0.2
             });
         }
         
-        // Add dust cloud
         for (let i = 0; i < 15; i++) {
             const angle = Math.random() * Math.PI * 2;
             const distance = Math.random() * 20;
             const speed = Math.random() * 1.5;
-            
             this.particles.push({
                 x: centerX + Math.cos(angle) * distance,
                 y: centerY + Math.sin(angle) * distance,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                color: '#aaaaaa',
-                size: Math.random() * 8 + 4,
-                life: Math.random() * 60 + 30,
-                gravity: 0.05,
-                type: 'dust',
-                opacity: 0.7
+                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                color: '#aaaaaa', size: Math.random() * 8 + 4,
+                life: Math.random() * 60 + 30, gravity: 0.05, opacity: 0.7
             });
         }
     }
     
-    /**
-     * Draw the title screen
-     */
-    drawTitleScreen() {
-        // Clear the canvas
-        this.ctx.fillStyle = 'black';
+    render() {
+        const shakeX = this.screenShake > 0 ? (Math.random() - 0.5) * 5 : 0;
+        const shakeY = this.screenShake > 0 ? (Math.random() - 0.5) * 5 : 0;
+        
+        this.ctx.save();
+        this.ctx.translate(shakeX, shakeY);
+        
+        this.ctx.fillStyle = this.backgroundPattern;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Draw game title
-        this.ctx.font = 'bold 48px sans-serif';
-        this.ctx.fillStyle = '#ffd700';
+        
+        if (this.grid && this.grid.length > 0) {
+            for (let y = 0; y < this.grid.length; y++) {
+                for (let x = 0; x < this.grid[y].length; x++) {
+                    this.drawTile(x, y, this.grid[y][x]);
+                }
+            }
+        }
+        
+        for (const enemy of this.enemies) {
+            this.drawTile(enemy.x, enemy.y, ELEMENT_TYPES.ENEMY);
+        }
+        
+        for (const p of this.particles) {
+            this.ctx.fillStyle = p.color;
+            this.ctx.globalAlpha = Math.max(0, p.life / (p.life + 10)) * (p.opacity || 1);
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.globalAlpha = 1;
+        }
+        
+        if (this.gameOver) {
+            this.drawMessage('GAME OVER', 'Press Restart', '#ff0000');
+        } else if (this.levelComplete) {
+            this.drawMessage('LEVEL COMPLETE', `Score: ${this.score}`, '#00ff00');
+        }
+        
+        this.ctx.restore();
+    }
+    
+    drawTile(x, y, element) {
+        const posX = x * TILE_SIZE;
+        const posY = y * TILE_SIZE;
+        if (this.sprites[element]) {
+            this.ctx.drawImage(this.sprites[element], posX, posY, TILE_SIZE, TILE_SIZE);
+        }
+    }
+    
+    drawMessage(title, subtitle, color) {
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(centerX - 200, centerY - 80, 400, 160);
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(centerX - 200, centerY - 80, 400, 160);
+        
+        this.ctx.fillStyle = color;
+        this.ctx.font = 'bold 32px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('BOULDERDASH', this.canvas.width / 2, this.canvas.height / 2 - 40);
-
-        // Draw instructions
-        this.ctx.font = '24px sans-serif';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(title, centerX, centerY - 30);
+        
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.fillText('Press Start to Play', this.canvas.width / 2, this.canvas.height / 2 + 20);
+        this.ctx.font = '18px Arial';
+        this.ctx.fillText(subtitle, centerX, centerY + 30);
+    }
+    
+    drawTitleScreen() {
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.fillStyle = '#ffcc00';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('BOULDER DASH', this.canvas.width / 2, this.canvas.height / 2 - 60);
+        
+        this.ctx.font = '24px Arial';
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillText('Collect diamonds and escape!', this.canvas.width / 2, this.canvas.height / 2 - 10);
+        
+        this.ctx.font = '18px Arial';
+        this.ctx.fillStyle = '#cccccc';
+        this.ctx.fillText('Press Start Game to begin', this.canvas.width / 2, this.canvas.height / 2 + 40);
     }
 }
 
-/**
- * Start the game when the DOM is loaded
- */
 document.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
 });

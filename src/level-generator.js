@@ -20,7 +20,8 @@ export function generateLevel(level) {
     // Add interactive elements (their quantity depends on the level difficulty)
     const diamondCount = 20 + (difficulty * 5);
     const boulderCount = 30 + (difficulty * 7);
-    const enemyCount = Math.floor(difficulty * 1.5);
+    // No enemies on level 1 - they appear in later levels
+    const enemyCount = level === 1 ? 0 : Math.floor(difficulty * 1.5);
     
     addBoulders(grid, boulderCount);
     const diamonds = addDiamonds(grid, diamondCount);
