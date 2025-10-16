@@ -153,29 +153,35 @@ class Game {
         const container = this.canvas.parentElement;
         if (!container) return;
         
-        // Get available space
+        // Get available space for canvas
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Calculate max dimensions with safety margins
-        const maxWidth = Math.min(
+        // Calculate available height (viewport minus header, HUD, controls, and margins)
+        const headerHeight = document.querySelector('.game-header')?.offsetHeight || 150;
+        const controlsHeight = document.querySelector('.game-controls')?.offsetHeight || 120;
+        const margins = 80; // Total vertical margins and padding
+        
+        const availableHeight = viewportHeight - headerHeight - controlsHeight - margins;
+        const availableWidth = Math.min(
             container.clientWidth - 40,
             viewportWidth - 60
         );
-        const maxHeight = Math.min(
-            viewportHeight * 0.5, // Max 50% of viewport height
-            600 // Max absolute height
-        );
         
+        // Use aspect ratio to calculate dimensions
         const aspectRatio = this.canvas.width / this.canvas.height;
-        let width = Math.min(maxWidth, this.canvas.width);
+        
+        // Try width-constrained first
+        let width = Math.min(availableWidth, this.canvas.width);
         let height = width / aspectRatio;
         
-        if (height > maxHeight) {
-            height = maxHeight;
+        // If height doesn't fit, constrain by height instead
+        if (height > availableHeight) {
+            height = Math.min(availableHeight, this.canvas.height);
             width = height * aspectRatio;
         }
         
+        // Apply calculated dimensions
         this.canvas.style.width = `${Math.floor(width)}px`;
         this.canvas.style.height = `${Math.floor(height)}px`;
     }
@@ -335,7 +341,12 @@ class Game {
     handlePlayerMove(direction) {
         if (!this.physics) return;
         this.playerDirection = direction;
-        const result = this.physics.movePlayer(this.playerPosition.x, this.playerPosition.y, direction);
+        const result = this.physics.movePlayer(
+            this.playerPosition.x, 
+            this.playerPosition.y, 
+            direction,
+            this.exitOpen  // Pass exitOpen status to physics
+        );
         
         if (result.success) {
             this.playerPosition.x = result.newX;

@@ -165,7 +165,15 @@ export class GamePhysics {
      * @param {string} direction - Direction to move
      * @returns {Object} - Result of the move {success, newX, newY, collected, crushed, exit}
      */
-    movePlayer(playerX, playerY, direction) {
+    /**
+     * Move the player in a direction
+     * @param {number} playerX - Player's current x coordinate
+     * @param {number} playerY - Player's current y coordinate
+     * @param {string} direction - Direction to move ('UP', 'DOWN', 'LEFT', 'RIGHT')
+     * @param {boolean} exitOpen - Whether the exit is open (enough diamonds collected)
+     * @returns {Object} - Object with success, new position, and collected flags
+     */
+    movePlayer(playerX, playerY, direction, exitOpen = false) {
         console.log(`Moving player from ${playerX}, ${playerY} in direction ${direction}`);
         
         // Validate input coordinates
@@ -238,13 +246,19 @@ export class GamePhysics {
                 break;
 
             case ELEMENT_TYPES.EXIT:
-                // Enter exit
-                this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
-                this.grid[playerY][playerX] = ELEMENT_TYPES.EMPTY;
-                result.success = true;
-                result.newX = newX;
-                result.newY = newY;
-                result.exit = true;
+                // Only allow entering exit if it's open (enough diamonds collected)
+                if (exitOpen) {
+                    this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
+                    this.grid[playerY][playerX] = ELEMENT_TYPES.EMPTY;
+                    result.success = true;
+                    result.newX = newX;
+                    result.newY = newY;
+                    result.exit = true;
+                } else {
+                    // Exit is blocked - cannot enter yet
+                    console.log('Exit is not open yet - collect more diamonds!');
+                    result.success = false;
+                }
                 break;
 
             case ELEMENT_TYPES.ENEMY:
