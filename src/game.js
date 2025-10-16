@@ -113,7 +113,8 @@ class Game {
             if (this.debugDisplay) {
                 document.getElementById('lastKey').textContent = e.key;
                 document.getElementById('isRunning').textContent = this.isRunning;
-                document.getElementById('playerPos').textContent = `${this.playerPosition.x},${this.playerPosition.y}`;
+                const gridValue = this.grid && this.grid[this.playerPosition.y] ? this.grid[this.playerPosition.y][this.playerPosition.x] : '?';
+                document.getElementById('playerPos').textContent = `${this.playerPosition.x},${this.playerPosition.y} (grid:${gridValue})`;
             }
             
             console.log(`Key pressed: ${e.key}, isRunning: ${this.isRunning}`);
@@ -280,6 +281,11 @@ class Game {
             this.playerNextDirection = null;
         }
         
+        // Sync grid from physics after all updates
+        if (this.physics) {
+            this.grid = this.physics.getGrid();
+        }
+        
         this.playerAnimationCounter += cappedDelta;
         if (this.playerAnimationCounter > 150) {
             this.playerAnimationCounter = 0;
@@ -291,6 +297,14 @@ class Game {
         }
         
         this.updateParticles(cappedDelta / 16);
+        
+        // Update debug display every frame
+        if (this.debugDisplay) {
+            document.getElementById('isRunning').textContent = this.isRunning;
+            const gridValue = this.grid && this.grid[this.playerPosition.y] ? this.grid[this.playerPosition.y][this.playerPosition.x] : '?';
+            document.getElementById('playerPos').textContent = `${this.playerPosition.x},${this.playerPosition.y} (grid:${gridValue})`;
+        }
+        
         this.render();
         this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     }
@@ -298,8 +312,6 @@ class Game {
     updatePhysics() {
         if (!this.physics) return;
         this.physics.update();
-        // Sync the physics grid back to the game grid
-        this.grid = this.physics.getGrid();
         if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
             this.handlePlayerDeath('Crushed!');
         }
@@ -310,9 +322,6 @@ class Game {
         this.playerDirection = direction;
         const result = this.physics.movePlayer(this.playerPosition.x, this.playerPosition.y, direction);
         console.log(`Player move attempt: ${direction} -> Success: ${result.success}, New pos: ${result.newX}, ${result.newY}`);
-        
-        // Sync the physics grid back to the game grid after movement
-        this.grid = this.physics.getGrid();
         
         if (result.success) {
             this.playerPosition.x = result.newX;
@@ -344,9 +353,6 @@ class Game {
     updateEnemies() {
         if (!this.physics) return;
         this.enemies = this.physics.moveEnemies(this.enemies, this.playerPosition.x, this.playerPosition.y);
-        
-        // Sync the physics grid back to the game grid after enemy moves
-        this.grid = this.physics.getGrid();
         
         if (this.physics.checkEnemyCollision(this.playerPosition.x, this.playerPosition.y, this.enemies)) {
             this.handlePlayerDeath('Enemy contact!');
@@ -455,6 +461,15 @@ class Game {
         for (const enemy of this.enemies) {
             this.drawTile(enemy.x, enemy.y, ELEMENT_TYPES.ENEMY);
         }
+        
+        // DEBUG: Draw a red square at player position
+        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+        this.ctx.fillRect(
+            this.playerPosition.x * TILE_SIZE, 
+            this.playerPosition.y * TILE_SIZE, 
+            TILE_SIZE, 
+            TILE_SIZE
+        );
         
         for (const p of this.particles) {
             this.ctx.fillStyle = p.color;
