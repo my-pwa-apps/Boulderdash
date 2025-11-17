@@ -501,10 +501,15 @@ class Game {
         let bestTarget = null;
         let bestScore = -Infinity;
         
+        // Safety check
+        if (!this.grid || !this.physics) {
+            return null;
+        }
+        
         // Scan for diamonds
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
-                if (this.grid[y][x] === ELEMENT_TYPES.DIAMOND) {
+                if (this.grid[y] && this.grid[y][x] === ELEMENT_TYPES.DIAMOND) {
                     const dist = Math.abs(x - px) + Math.abs(y - py);
                     const score = 100 / (dist + 1); // Closer diamonds score higher
                     if (score > bestScore) {
