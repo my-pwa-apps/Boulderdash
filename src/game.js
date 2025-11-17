@@ -491,34 +491,50 @@ class Game {
         
         // If severely stuck (immediate action on oscillation), force random move
         if (this.aiMemory.stuckCounter >= 2) {
-            console.log('AI stuck - forcing random exploration');
+            // If stuck for too long, stop demo mode
+            if (!this.aiMemory.totalStuckCount) {
+                this.aiMemory.totalStuckCount = 0;
+            }
+            this.aiMemory.totalStuckCount++;
+            
+            if (this.aiMemory.totalStuckCount > 10) {
+                console.log('AI permanently stuck - ending demo mode');
+                this.stopDemo();
+                return null;
+            }
+            
+            console.log(`AI stuck (${this.aiMemory.totalStuckCount}/10) - forcing random exploration`);
             this.aiMemory.stuckCounter = 0;
             this.aiMemory.exploredCells.clear();
             
-            // Shuffle directions and exclude recently visited positions
+            // Find the LEAST recently visited valid move to break the loop
             const dirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
-            // Shuffle array
-            for (let i = dirs.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
-            }
+            const validMoves = [];
             
-            // Try each direction, preferring ones not in recent history
-            const recentSet = new Set(this.aiMemory.lastPositions.slice(-4));
             for (const dir of dirs) {
                 const testMove = this.getNewPosition(px, py, dir);
                 const testKey = `${testMove.x},${testMove.y}`;
-                if (this.isValidAIMove(testMove.x, testMove.y) && !recentSet.has(testKey)) {
-                    return dir;
+                if (this.isValidAIMove(testMove.x, testMove.y)) {
+                    // Find when this position was last visited (or never)
+                    const lastVisitIndex = this.aiMemory.lastPositions.lastIndexOf(testKey);
+                    validMoves.push({
+                        dir,
+                        key: testKey,
+                        lastVisit: lastVisitIndex,
+                        turnsAgo: lastVisitIndex >= 0 ? this.aiMemory.lastPositions.length - lastVisitIndex : 999
+                    });
                 }
             }
             
-            // If all moves were recent, try any valid move
-            for (const dir of dirs) {
-                const testMove = this.getNewPosition(px, py, dir);
-                if (this.isValidAIMove(testMove.x, testMove.y)) {
-                    return dir;
-                }
+            if (validMoves.length > 0) {
+                // Sort by longest time since visit (prefer least recently visited)
+                validMoves.sort((a, b) => b.turnsAgo - a.turnsAgo);
+                return validMoves[0].dir;
+            }
+        } else {
+            // Reset total stuck count when making progress
+            if (this.aiMemory.totalStuckCount) {
+                this.aiMemory.totalStuckCount = Math.max(0, this.aiMemory.totalStuckCount - 1);
             }
         }
         
