@@ -95,6 +95,9 @@ function generateSprite(color, type) {
         case ELEMENT_TYPES.ENEMY:
             drawEnemy(ctx, color);
             break;
+        case ELEMENT_TYPES.MAGIC_WALL:
+            drawMagicWall(ctx, color);
+            break;
         default:
             break;
     }
@@ -598,6 +601,37 @@ function drawEnemy(ctx, color) {
     ctx.lineTo(centerX - radius/2, centerY + radius/2);
     ctx.closePath();
     ctx.fill();
+}
+
+/**
+ * Draw a magic wall (converts boulders to diamonds when they fall through)
+ * @param {CanvasRenderingContext2D} ctx - The canvas context
+ * @param {string} color - The main color (bright green)
+ */
+function drawMagicWall(ctx, color) {
+    // Animated striped pattern
+    const stripeWidth = 3;
+    const darkColor = darkenColor(color, 0.5);
+    
+    // Diagonal stripes
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    
+    ctx.fillStyle = darkColor;
+    for (let i = -TILE_SIZE; i < TILE_SIZE * 2; i += stripeWidth * 2) {
+        ctx.fillRect(i, 0, stripeWidth, TILE_SIZE);
+        ctx.save();
+        ctx.translate(TILE_SIZE / 2, TILE_SIZE / 2);
+        ctx.rotate(Math.PI / 4);
+        ctx.translate(-TILE_SIZE / 2, -TILE_SIZE / 2);
+        ctx.fillRect(i, 0, stripeWidth, TILE_SIZE);
+        ctx.restore();
+    }
+    
+    // Border glow effect
+    ctx.strokeStyle = lightenColor(color, 0.3);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2);
 }
 
 

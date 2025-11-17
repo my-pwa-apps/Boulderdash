@@ -41,21 +41,21 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 10,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP*.W.....W.....W...*.W.....W.........EW
-W...W..*..W..*..W..*..W..*..W..........W
-W...W.....W.....W.....W.....W..........W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWW...........W
-W....W........W........W...............W
-W.*..W..##....W..##....W...............W
-W....W........W........W...............W
-W.....WWWWWWWWWWWWWWWWWWWWWWW..........W
-W........W.....W.....W.....W...........W
-W..*.....W..*..W..*..W..*..W...........W
-W........W.....W.....W.....W...........W
-W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.....W
-W......W......W......W......W..........W
-W..*...W..##..W..##..W..##..W..........W
-W......W......W......W......W..........W
+WP......*......*......*...............EW
+W......................................W
+W...WWW....WWW....WWW....WWW...........W
+W...W.*....W.*....W.*....W.*...........W
+W...W......W......W......W.............W
+W...WWW....WWW....WWW....WWW...........W
+W......................................W
+W..###.................................W
+W..###.................................W
+W......................................W
+W...WWW....WWW....WWW....WWW...........W
+W...W.*....W.*....W.*....W.*...........W
+W...W......W......W......W.............W
+W...WWW....WWW....WWW....WWW...........W
+W......................................W
 W......................................W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         `,
@@ -202,32 +202,32 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         enemies: 5
     },
     {
-        // Cave H: "Enchanted Wall"
+        // Cave H: "Enchanted Wall" - Features magic walls that convert boulders to diamonds!
         name: "ENCHANTED WALL",
         timeLimit: 180,
         diamondsRequired: 22,
         diamondValue: 12,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
-W.......................................W
-W...##############################....W
-W...##############################....W
-W.......................................W
-W.......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W
-W.......................................W
-W.......................................W
-W.......................................W
-W...##############################....W
-W...##############################....W
-W.......................................W
-W.......................................W
-W.......................................W
-W.......................................W
+WP...#####....#####....#####..........EW
+W....#####....#####....#####...........W
+W......................................W
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMW
+W......................................W
+W..*........*.........*........*.......W
+W......................................W
+W...#####....#####....#####............W
+W...#####....#####....#####............W
+W......................................W
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMW
+W......................................W
+W...*........*.........*........*......W
+W......................................W
+W......................................W
+W......................................W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         `,
-        enemies: 3
+        enemies: 2
     },
     {
         // Cave I: "Greed"
@@ -497,6 +497,9 @@ export function parsePattern(pattern, width, height) {
                 case 'F':
                     cell = ELEMENT_TYPES.ENEMY;
                     enemies.push({ x, y });
+                    break;
+                case 'M':
+                    cell = ELEMENT_TYPES.MAGIC_WALL;
                     break;
                 case '.':
                     cell = ELEMENT_TYPES.DIRT;

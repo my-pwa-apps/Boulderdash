@@ -12,7 +12,8 @@ export const ELEMENT_TYPES = {
     DIAMOND: 4,
     EXIT: 5,
     PLAYER: 6,
-    ENEMY: 7
+    ENEMY: 7,
+    MAGIC_WALL: 8
 };
 
 // Colors matching 80's Namco arcade aesthetic - bright, bold, high contrast
@@ -24,7 +25,8 @@ export const COLORS = {
     DIAMOND: '#00FFFF',     // Bright cyan diamond (classic arcade)
     EXIT: '#FF00FF',        // Hot magenta portal
     PLAYER: '#FFFF00',      // Bright yellow player (Pac-Man style)
-    ENEMY: '#FF0000'        // Bright red enemy (arcade villain)
+    ENEMY: '#FF0000',       // Bright red enemy (arcade villain)
+    MAGIC_WALL: '#00FF00'   // Bright green magic wall (converts boulders to diamonds)
 };
 
 // Game settings balanced for classic Boulder Dash feel

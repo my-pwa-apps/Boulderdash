@@ -52,6 +52,18 @@ export class GamePhysics {
                     this.fallingObjects.add(`${x},${y+1}`);
                     this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
                     physicsUpdated = true;
+                } else if (below === ELEMENT_TYPES.MAGIC_WALL) {
+                    // Magic wall: Boulder becomes diamond, diamond becomes boulder
+                    // Only if there's space below the magic wall
+                    if (y + 2 < this.height && this.grid[y + 2][x] === ELEMENT_TYPES.EMPTY) {
+                        const convertedElement = element === ELEMENT_TYPES.BOULDER ? 
+                            ELEMENT_TYPES.DIAMOND : ELEMENT_TYPES.BOULDER;
+                        this.grid[y + 2][x] = convertedElement;
+                        this.grid[y][x] = ELEMENT_TYPES.EMPTY;
+                        this.fallingObjects.add(`${x},${y+2}`);
+                        this.lastUpdatedCell = { x, y: y+2, type: 'magic' };
+                        physicsUpdated = true;
+                    }
                 } else if (below === ELEMENT_TYPES.BOULDER || 
                           below === ELEMENT_TYPES.DIAMOND || 
                           below === ELEMENT_TYPES.WALL || 
