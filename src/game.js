@@ -20,6 +20,7 @@ class Game {
         this.particles = [];
         this.backgroundPattern = this.createBackgroundPattern();
         this.scoreElement = document.getElementById('score');
+        this.highScoreElement = document.getElementById('highScore');
         this.diamondsElement = document.getElementById('diamonds');
         this.timeElement = document.getElementById('time');
         this.levelElement = document.getElementById('level');
@@ -64,6 +65,9 @@ class Game {
         if (this.firebaseInitialized) {
             logGameEvent('game_loaded');
         }
+        
+        // Load and display high score
+        this.loadHighScore();
         
         // Auto-play demo mode
         this.demoMode = false;
@@ -331,8 +335,26 @@ class Game {
         this.updateHUD();
     }
     
+    async loadHighScore() {
+        try {
+            const scores = await getHighScores(1);
+            this.highScore = scores.length > 0 ? scores[0].score : 0;
+            this.updateHighScoreDisplay();
+        } catch (error) {
+            console.error('Error loading high score:', error);
+            this.highScore = 0;
+        }
+    }
+    
+    updateHighScoreDisplay() {
+        if (this.highScoreElement) {
+            this.highScoreElement.textContent = `Best: ${this.highScore}`;
+        }
+    }
+    
     updateHUD() {
         this.scoreElement.textContent = `Score: ${this.score}`;
+        this.updateHighScoreDisplay();
         this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
         this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
         const caveName = this.levelName ? ` - ${this.levelName}` : '';
@@ -447,11 +469,16 @@ class Game {
         }
         
         // Detect if stuck (same position repeated or oscillating)
-        const recentPositions = this.aiMemory.lastPositions.slice(-6);
+        const recentPositions = this.aiMemory.lastPositions.slice(-8);
         const uniquePositions = new Set(recentPositions);
-        const isStuck = uniquePositions.size <= 2 && recentPositions.length >= 4;
+        const isStuck = uniquePositions.size <= 2 && recentPositions.length >= 6;
         
-        if (isStuck) {
+        // Also detect if repeating same 2-position pattern (e.g., A->B->A->B)
+        const isOscillating = recentPositions.length >= 4 && 
+            recentPositions[recentPositions.length - 1] === recentPositions[recentPositions.length - 3] &&
+            recentPositions[recentPositions.length - 2] === recentPositions[recentPositions.length - 4];
+        
+        if (isStuck || isOscillating) {
             this.aiMemory.stuckCounter++;
         } else {
             this.aiMemory.stuckCounter = Math.max(0, this.aiMemory.stuckCounter - 1);
@@ -463,8 +490,8 @@ class Game {
         // Find best target using A* pathfinding
         let target = this.findBestTarget(px, py);
         
-        // If no target or severely stuck, explore random unexplored areas
-        if (!target || this.aiMemory.stuckCounter > 4) {
+        // If no target or stuck (reduced threshold from 4 to 2), explore random unexplored areas
+        if (!target || this.aiMemory.stuckCounter > 2) {
             target = this.findUnexploredTarget(px, py);
             this.aiMemory.stuckCounter = 0;
         }
@@ -534,10 +561,13 @@ class Game {
     
     findUnexploredTarget(px, py) {
         // Find nearest unexplored cell with dirt
+        if (!this.grid || !Array.isArray(this.grid)) return null;
+        
         let bestTarget = null;
         let minDist = Infinity;
         
         for (let y = 0; y < GRID_HEIGHT; y++) {
+            if (!this.grid[y]) continue;
             for (let x = 0; x < GRID_WIDTH; x++) {
                 const posKey = `${x},${y}`;
                 if (!this.aiMemory.exploredCells.has(posKey) && 
@@ -824,18 +854,23 @@ class Game {
         this.restartButton.classList.remove('hidden');
         this.startButton.classList.add('hidden');
         
-        // Log game over event and save high score if enabled
+        // Log game over event and save high score
         if (this.firebaseInitialized) {
             logGameEvent('game_over', { 
                 reason: reason, 
                 level: this.level, 
                 score: this.score 
             });
-            
-            // Optionally save high score (you can prompt for player name)
-            if (this.score > 0) {
-                saveHighScore('Player', this.score, this.level);
+        }
+        
+        // Always save high score to localStorage
+        if (this.score > 0) {
+            saveHighScore('Player', this.score, this.level);
+            if (this.score > this.highScore) {
+                this.highScore = this.score;
+                this.updateHighScoreDisplay();
             }
+            this.showHighScoreMessage();
         }
     }
     
@@ -859,6 +894,25 @@ class Game {
         setTimeout(() => {
             if (this.levelComplete) this.nextLevel();
         }, 3000);
+    }
+    
+    async showHighScoreMessage() {
+        try {
+            const scores = await getHighScores(10);
+            const currentRank = scores.findIndex(s => s.timestamp === scores[scores.length - 1]?.timestamp) + 1;
+            
+            if (currentRank > 0 && currentRank <= 10) {
+                console.log(`🏆 New High Score! Rank #${currentRank} with ${this.score} points`);
+            }
+            
+            // Log top 5 to console
+            console.log('🏆 Top 5 High Scores:');
+            scores.slice(0, 5).forEach((s, i) => {
+                console.log(`${i + 1}. Level ${s.level} - ${s.score} points - ${new Date(s.timestamp).toLocaleDateString()}`);
+            });
+        } catch (error) {
+            console.error('Error displaying high scores:', error);
+        }
     }
     
     nextLevel() {

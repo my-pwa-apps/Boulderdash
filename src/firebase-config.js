@@ -33,23 +33,27 @@ export function initializeFirebase() {
   }
 }
 
-// Save high score to Firebase
+// Save high score to localStorage (Firebase read-only)
 export async function saveHighScore(playerName, score, level) {
-  if (!database) {
-    console.warn('Firebase database not initialized');
-    return false;
-  }
-  
   try {
-    const scoresRef = database.ref('highscores');
-    const newScoreRef = scoresRef.push();
-    await newScoreRef.set({
-      playerName: playerName,
+    // Get existing high scores from localStorage
+    const scores = getHighScoresSync();
+    
+    // Add new score
+    scores.push({
+      playerName: playerName || 'Player',
       score: score,
       level: level,
-      timestamp: firebase.database.ServerValue.TIMESTAMP
+      timestamp: Date.now()
     });
-    console.log('High score saved successfully');
+    
+    // Sort by score (descending) and keep top 100
+    scores.sort((a, b) => b.score - a.score);
+    const topScores = scores.slice(0, 100);
+    
+    // Save back to localStorage
+    localStorage.setItem('boulderdash_highscores', JSON.stringify(topScores));
+    console.log('High score saved to localStorage');
     return true;
   } catch (error) {
     console.error('Error saving high score:', error);
@@ -57,34 +61,22 @@ export async function saveHighScore(playerName, score, level) {
   }
 }
 
-// Get top high scores from Firebase
+// Get top high scores from localStorage
 export async function getHighScores(limit = 10) {
-  if (!database) {
-    console.warn('Firebase database not initialized');
-    return [];
-  }
-  
+  return getHighScoresSync().slice(0, limit);
+}
+
+// Synchronous helper for getting high scores
+function getHighScoresSync() {
   try {
-    const scoresRef = database.ref('highscores');
-    const snapshot = await scoresRef
-      .orderByChild('score')
-      .limitToLast(limit)
-      .once('value');
-    
-    const scores = [];
-    snapshot.forEach((childSnapshot) => {
-      scores.push({
-        id: childSnapshot.key,
-        ...childSnapshot.val()
-      });
-    });
-    
-    // Sort descending by score
-    return scores.reverse();
+    const stored = localStorage.getItem('boulderdash_highscores');
+    if (stored) {
+      return JSON.parse(stored);
+    }
   } catch (error) {
-    console.error('Error fetching high scores:', error);
-    return [];
+    console.error('Error reading high scores:', error);
   }
+  return [];
 }
 
 // Store game statistics in database (instead of analytics)
