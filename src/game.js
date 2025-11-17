@@ -489,7 +489,7 @@ class Game {
         // Mark current cell as explored
         this.aiMemory.exploredCells.add(posKey);
         
-        // If severely stuck (immediate action on oscillation), force random move
+        // If severely stuck (immediate action on oscillation), force smart exploration
         if (this.aiMemory.stuckCounter >= 2) {
             // If stuck for too long, stop demo mode
             if (!this.aiMemory.totalStuckCount) {
@@ -503,33 +503,59 @@ class Game {
                 return null;
             }
             
-            console.log(`AI stuck (${this.aiMemory.totalStuckCount}/10) - forcing random exploration`);
+            console.log(`AI stuck (${this.aiMemory.totalStuckCount}/10) - forcing smart exploration`);
             this.aiMemory.stuckCounter = 0;
-            this.aiMemory.exploredCells.clear();
             
-            // Find the LEAST recently visited valid move to break the loop
+            // SMART ESCAPE: Evaluate all moves with aggressive scoring toward unexplored areas
             const dirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
             const validMoves = [];
             
             for (const dir of dirs) {
                 const testMove = this.getNewPosition(px, py, dir);
                 const testKey = `${testMove.x},${testMove.y}`;
-                if (this.isValidAIMove(testMove.x, testMove.y)) {
-                    // Find when this position was last visited (or never)
-                    const lastVisitIndex = this.aiMemory.lastPositions.lastIndexOf(testKey);
-                    validMoves.push({
-                        dir,
-                        key: testKey,
-                        lastVisit: lastVisitIndex,
-                        turnsAgo: lastVisitIndex >= 0 ? this.aiMemory.lastPositions.length - lastVisitIndex : 999
-                    });
+                if (!this.isValidAIMove(testMove.x, testMove.y)) continue;
+                
+                let score = 0;
+                const cell = this.grid[testMove.y][testMove.x];
+                
+                // Heavily prioritize directions that haven't been tried recently
+                const lastVisitIndex = this.aiMemory.lastPositions.lastIndexOf(testKey);
+                if (lastVisitIndex === -1) {
+                    score += 1000; // Never visited - highest priority!
+                } else {
+                    const turnsAgo = this.aiMemory.lastPositions.length - lastVisitIndex;
+                    score += turnsAgo * 50; // More points for longer ago
                 }
+                
+                // Bonus for dirt (means unexplored path)
+                if (cell === ELEMENT_TYPES.DIRT) score += 200;
+                
+                // Bonus for moving away from oscillation zone
+                const recentPositions = this.aiMemory.lastPositions.slice(-6);
+                const isInOscillationZone = recentPositions.includes(testKey);
+                if (!isInOscillationZone) score += 300;
+                
+                // Penalize returning to exact previous position
+                if (this.aiMemory.lastPositions.length > 0 && 
+                    testKey === this.aiMemory.lastPositions[this.aiMemory.lastPositions.length - 1]) {
+                    score -= 500;
+                }
+                
+                validMoves.push({ dir, key: testKey, score });
             }
             
             if (validMoves.length > 0) {
-                // Sort by longest time since visit (prefer least recently visited)
-                validMoves.sort((a, b) => b.turnsAgo - a.turnsAgo);
-                return validMoves[0].dir;
+                // Sort by highest score (best escape route)
+                validMoves.sort((a, b) => b.score - a.score);
+                
+                // Add some randomness to top choices to avoid predictable patterns
+                const topChoices = validMoves.slice(0, Math.min(2, validMoves.length));
+                const chosen = topChoices[Math.floor(Math.random() * topChoices.length)];
+                
+                // Clear explored cells near oscillation to allow revisit from different angle
+                this.aiMemory.exploredCells.clear();
+                
+                return chosen.dir;
             }
         } else {
             // Reset total stuck count when making progress
