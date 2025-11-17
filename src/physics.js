@@ -22,7 +22,7 @@ export class GamePhysics {
     }
     
     /**
-     * Update the physics state of the game
+     * Update the physics state of the game (optimized)
      * @returns {boolean} - Whether any physics updates occurred
      */
     update() {
@@ -30,28 +30,35 @@ export class GamePhysics {
         this.fallingObjects.clear();
         this.lastUpdatedCell = null;
         
-        // Check for falling boulders and diamonds
         let physicsUpdated = false;
         
-        // Scan grid from bottom to top for better falling physics
+        // Optimized scan from bottom to top for better falling physics
         for (let y = this.height - 2; y >= 0; y--) {
             for (let x = 0; x < this.width; x++) {
                 const element = this.grid[y][x];
                 
-                if (element === ELEMENT_TYPES.BOULDER || element === ELEMENT_TYPES.DIAMOND) {
-                    // Check if object can fall
-                    if (this.canFall(x, y)) {
-                        // Move object down
-                        this.grid[y + 1][x] = element;
-                        this.grid[y][x] = ELEMENT_TYPES.EMPTY;
-                        this.fallingObjects.add(`${x},${y+1}`);
-                        this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
+                // Only process boulders and diamonds
+                if (element !== ELEMENT_TYPES.BOULDER && element !== ELEMENT_TYPES.DIAMOND) {
+                    continue;
+                }
+                
+                // Inline canFall check for performance
+                const below = this.grid[y + 1][x];
+                
+                if (below === ELEMENT_TYPES.EMPTY) {
+                    // Direct fall
+                    this.grid[y + 1][x] = element;
+                    this.grid[y][x] = ELEMENT_TYPES.EMPTY;
+                    this.fallingObjects.add(`${x},${y+1}`);
+                    this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
+                    physicsUpdated = true;
+                } else if (below === ELEMENT_TYPES.BOULDER || 
+                          below === ELEMENT_TYPES.DIAMOND || 
+                          below === ELEMENT_TYPES.WALL || 
+                          below === ELEMENT_TYPES.PLAYER) {
+                    // Try to roll off
+                    if (this.tryRollOptimized(x, y)) {
                         physicsUpdated = true;
-                    }
-                    // Check if object can roll
-                    else if (this.canRoll(x, y)) {
-                        physicsUpdated = true;
-                        // The tryRoll method handles the cell update tracking
                     }
                 }
             }
@@ -351,102 +358,6 @@ export class GamePhysics {
     }
     
     /**
-     * Update physics with optimizations for falling objects
-     * @param {Array} additionalFallingObjects - Array of coordinates for new falling objects
-     * @returns {boolean} - Whether any physics updates occurred
-     */
-    updateFallingObjects(additionalFallingObjects = []) {
-        // Clear the previous set of falling objects
-        this.fallingObjects = new Set();
-        this.lastUpdatedCell = null;
-        
-        // Prepare a map for efficient lookup of objects that need to fall
-        const fallingMap = new Map();
-        
-        // Add any external objects marked for falling (from game logic)
-        for (const [x, y] of additionalFallingObjects) {
-            fallingMap.set(`${x},${y}`, { x, y });
-        }
-        
-        // Scan grid for more objects that can fall
-        for (let y = this.height - 2; y >= 0; y--) {
-            for (let x = 0; x < this.width; x++) {
-                const element = this.grid[y][x];
-                
-                if (element === ELEMENT_TYPES.BOULDER || element === ELEMENT_TYPES.DIAMOND) {
-                    // Check if object can fall
-                    if (this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
-                        fallingMap.set(`${x},${y}`, { x, y });
-                    }
-                    // Check for rolling
-                    else if (this.canRollOptimized(x, y)) {
-                        // Roll direction is determined in canRoll
-                    }
-                }
-            }
-        }
-        
-        let physicsUpdated = false;
-        
-        // Process all falling objects
-        for (const [key, obj] of fallingMap.entries()) {
-            const { x, y } = obj;
-            const element = this.grid[y][x];
-            
-            if (this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
-                // Move object down
-                this.grid[y + 1][x] = element;
-                this.grid[y][x] = ELEMENT_TYPES.EMPTY;
-                this.fallingObjects.add(`${x},${y+1}`);
-                this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
-                physicsUpdated = true;
-            }
-            // Try rolling if can't fall directly
-            else if (this.tryRollOptimized(x, y)) {
-                physicsUpdated = true;
-            }
-        }
-        
-        return physicsUpdated || this.update(false); // Only do regular update if needed
-    }
-
-    /**
-     * Optimized check if an object can roll
-     * Uses direct array access for better performance
-     */
-    canRollOptimized(x, y) {
-        const element = this.grid[y][x];
-        
-        // Quick bailout if not at valid position
-        if (y + 1 >= this.height) return false;
-        
-        const elementBelow = this.grid[y + 1][x];
-        if (elementBelow !== ELEMENT_TYPES.BOULDER && 
-            elementBelow !== ELEMENT_TYPES.DIAMOND && 
-            elementBelow !== ELEMENT_TYPES.WALL && 
-            elementBelow !== ELEMENT_TYPES.PLAYER) {
-            return false;
-        }
-        
-        // Check right and left in that order (prefer right direction)
-        // Check right
-        if (x + 1 < this.width && 
-            this.grid[y][x + 1] === ELEMENT_TYPES.EMPTY &&
-            this.grid[y + 1][x + 1] === ELEMENT_TYPES.EMPTY) {
-            return true;
-        }
-        
-        // Check left
-        if (x - 1 >= 0 && 
-            this.grid[y][x - 1] === ELEMENT_TYPES.EMPTY &&
-            this.grid[y + 1][x - 1] === ELEMENT_TYPES.EMPTY) {
-            return true;
-        }
-        
-        return false;
-    }
-
-    /**
      * Optimized roll attempt (right first, then left)
      * @returns {boolean} Whether the roll succeeded
      */
@@ -478,48 +389,6 @@ export class GamePhysics {
         }
         
         return false;
-    }
-
-    /**
-     * Update the physics state of the game
-     * @param {boolean} checkFalling - Whether to check for falling objects
-     * @returns {boolean} - Whether any physics updates occurred
-     */
-    update(checkFalling = true) {
-        // Clear the set of falling objects if needed
-        if (checkFalling) {
-            this.fallingObjects = new Set();
-        }
-        this.lastUpdatedCell = null;
-        
-        let physicsUpdated = false;
-        
-        if (checkFalling) {
-            // Use optimized bottom-to-top scan for better falling physics
-            for (let y = this.height - 2; y >= 0; y--) {
-                for (let x = 0; x < this.width; x++) {
-                    const element = this.grid[y][x];
-                    
-                    if (element === ELEMENT_TYPES.BOULDER || element === ELEMENT_TYPES.DIAMOND) {
-                        // Inline the canFall check for performance
-                        if (y + 1 < this.height && this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
-                            // Move object down
-                            this.grid[y + 1][x] = element;
-                            this.grid[y][x] = ELEMENT_TYPES.EMPTY;
-                            this.fallingObjects.add(`${x},${y+1}`);
-                            this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
-                            physicsUpdated = true;
-                        }
-                        // Check if object can roll
-                        else if (this.tryRollOptimized(x, y)) {
-                            physicsUpdated = true;
-                        }
-                    }
-                }
-            }
-        }
-        
-        return physicsUpdated;
     }
     
     /**

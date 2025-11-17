@@ -2,8 +2,10 @@ import { generateAssets } from './assets.js';
 import { generateLevel } from './level-generator.js';
 import { GamePhysics } from './physics.js';
 import { SoundManager } from './sound.js';
+import { TouchControls } from './touch-controls.js';
 import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS } from './constants.js';
 import { formatTime } from './utils.js';
+import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js';
 
 class Game {
     constructor() {
@@ -53,6 +55,16 @@ class Game {
         this.createMuteButton();
         this.setupEventListeners();
         this.setupButtonListeners();
+        
+        // Initialize touch controls for mobile
+        this.touchControls = new TouchControls(this);
+        
+        // Initialize Firebase
+        this.firebaseInitialized = initializeFirebase();
+        if (this.firebaseInitialized) {
+            logGameEvent('game_loaded');
+        }
+        
         requestAnimationFrame(() => this.drawTitleScreen());
     }
     
@@ -199,6 +211,11 @@ class Game {
         this.startTimer();
         this.gameLoop();
         this.handleResize();
+        
+        // Log game start event
+        if (this.firebaseInitialized) {
+            logGameEvent('game_start', { level: this.level });
+        }
     }
     
     restartGame() {
@@ -416,6 +433,20 @@ class Game {
         // Show restart button when game is over
         this.restartButton.classList.remove('hidden');
         this.startButton.classList.add('hidden');
+        
+        // Log game over event and save high score if enabled
+        if (this.firebaseInitialized) {
+            logGameEvent('game_over', { 
+                reason: reason, 
+                level: this.level, 
+                score: this.score 
+            });
+            
+            // Optionally save high score (you can prompt for player name)
+            if (this.score > 0) {
+                saveHighScore('Player', this.score, this.level);
+            }
+        }
     }
     
     completeLevel() {
@@ -425,6 +456,16 @@ class Game {
         this.stopTimer();
         this.score += this.timeRemaining * 5;
         this.updateHUD();
+        
+        // Log level complete event
+        if (this.firebaseInitialized) {
+            logGameEvent('level_complete', { 
+                level: this.level, 
+                score: this.score,
+                timeRemaining: this.timeRemaining 
+            });
+        }
+        
         setTimeout(() => {
             if (this.levelComplete) this.nextLevel();
         }, 3000);

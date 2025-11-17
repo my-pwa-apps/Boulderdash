@@ -706,3 +706,222 @@ body::after {
         border-width: 2px;
     }
 }
+
+/* Touch Controls for Mobile Devices */
+.touch-controls {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    opacity: 0.85;
+    transition: opacity 0.3s ease;
+}
+
+.touch-controls:active {
+    opacity: 1;
+}
+
+.dpad {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    display: grid;
+    grid-template-columns: repeat(3, 60px);
+    grid-template-rows: repeat(3, 60px);
+    gap: 0;
+}
+
+.dpad-btn {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #ff00ff 0%, #8b008b 100%);
+    border: 3px solid #ffff00;
+    color: #ffff00;
+    font-size: 1.5rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    box-shadow: 
+        0 0 15px rgba(255, 0, 255, 0.6),
+        inset 0 0 10px rgba(0, 0, 0, 0.3);
+    transition: all 0.1s ease;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 5px #000;
+}
+
+.dpad-btn:active {
+    transform: scale(0.9);
+    background: linear-gradient(135deg, #ffff00 0%, #ff8800 100%);
+    color: #ff00ff;
+    box-shadow: 
+        0 0 25px rgba(255, 255, 0, 0.9),
+        inset 0 0 15px rgba(0, 0, 0, 0.5);
+}
+
+.dpad-up {
+    grid-column: 2;
+    grid-row: 1;
+    border-radius: 8px 8px 0 0;
+}
+
+.dpad-left {
+    grid-column: 1;
+    grid-row: 2;
+    border-radius: 8px 0 0 8px;
+}
+
+.dpad-center {
+    grid-column: 2;
+    grid-row: 2;
+    background: linear-gradient(135deg, #00ffff 0%, #0088aa 100%);
+    color: #000;
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    box-shadow: 
+        0 0 15px rgba(0, 255, 255, 0.6),
+        inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.dpad-center:active {
+    background: linear-gradient(135deg, #ffff00 0%, #ff8800 100%);
+    color: #000;
+    box-shadow: 
+        0 0 25px rgba(255, 255, 0, 0.9),
+        inset 0 0 15px rgba(0, 0, 0, 0.5);
+}
+
+.dpad-right {
+    grid-column: 3;
+    grid-row: 2;
+    border-radius: 0 8px 8px 0;
+}
+
+.dpad-down {
+    grid-column: 2;
+    grid-row: 3;
+    border-radius: 0 0 8px 8px;
+}
+
+/* Hide touch controls on desktop */
+@media (hover: hover) and (pointer: fine) {
+    .touch-controls {
+        display: none !important;
+    }
+}
+
+/* Adjust touch controls for smaller screens */
+@media (max-width: 768px) {
+    .touch-controls {
+        bottom: 10px;
+        right: 10px;
+        opacity: 0.7;
+    }
+    
+    .dpad {
+        width: 150px;
+        height: 150px;
+        grid-template-columns: repeat(3, 50px);
+        grid-template-rows: repeat(3, 50px);
+    }
+    
+    .dpad-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+        border-width: 2px;
+    }
+    
+    .dpad-center {
+        font-size: 0.6rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .touch-controls {
+        bottom: 5px;
+        right: 5px;
+    }
+    
+    .dpad {
+        width: 120px;
+        height: 120px;
+        grid-template-columns: repeat(3, 40px);
+        grid-template-rows: repeat(3, 40px);
+    }
+    
+    .dpad-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+        border-width: 2px;
+    }
+    
+    .dpad-center {
+        font-size: 0.5rem;
+    }
+}
+
+/* Safe area for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    
+    .touch-controls {
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        right: calc(20px + env(safe-area-inset-right));
+    }
+}
+
+/* Performance optimizations */
+* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+}
+
+canvas {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* Reduce animations on low-end devices */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .game-container::before {
+        animation: none !important;
+    }
+    
+    h1 {
+        animation: none !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .game-container {
+        border-width: 6px;
+    }
+    
+    button {
+        border-width: 4px;
+    }
+    
+    .game-info div {
+        border-width: 3px;
+    }
+}
