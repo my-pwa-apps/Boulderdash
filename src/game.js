@@ -499,7 +499,7 @@ class Game {
             for (let i = 0; i < dirs.length; i++) {
                 const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
                 const testMove = this.getNewPosition(px, py, randomDir);
-                if (this.physics.canMove(testMove.x, testMove.y)) {
+                if (this.isValidAIMove(testMove.x, testMove.y)) {
                     return randomDir;
                 }
             }
@@ -536,7 +536,7 @@ class Game {
             for (let i = 0; i < dirs.length; i++) {
                 const dir = dirs[Math.floor(Math.random() * dirs.length)];
                 const testPos = this.getNewPosition(px, py, dir);
-                if (this.physics.canMove(testPos.x, testPos.y)) {
+                if (this.isValidAIMove(testPos.x, testPos.y)) {
                     return dir;
                 }
             }
