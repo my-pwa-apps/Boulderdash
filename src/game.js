@@ -72,6 +72,10 @@ class Game {
         this.aiMoveCounter = 0;
         this.startDemoTimeout();
         
+        // Exit visual effects
+        this.screenFlash = 0;
+        this.exitSparkleTimer = 0;
+        
         requestAnimationFrame(() => this.drawTitleScreen());
     }
     
@@ -391,6 +395,20 @@ class Game {
         
         if (this.screenShake > 0) {
             this.screenShake -= cappedDelta / 20;
+        }
+        
+        // Decay screen flash
+        if (this.screenFlash > 0) {
+            this.screenFlash -= cappedDelta / 10;
+        }
+        
+        // Create exit sparkles periodically when exit is open
+        if (this.exitOpen && this.exitPosition) {
+            this.exitSparkleTimer += cappedDelta;
+            if (this.exitSparkleTimer >= 150) {
+                this.createExitSparkles();
+                this.exitSparkleTimer = 0;
+            }
         }
         
         this.updateParticles(cappedDelta / 16);
@@ -739,6 +757,8 @@ class Game {
                 if (this.diamondsCollected >= this.requiredDiamonds) {
                     this.exitOpen = true;
                     this.sound.play('exit');
+                    this.screenFlash = 30; // Flash effect
+                    this.createExitSparkles(); // Initial burst
                 }
             }
             
@@ -766,6 +786,8 @@ class Game {
             if (this.diamondsCollected >= this.requiredDiamonds) {
                 this.exitOpen = true;
                 this.sound.play('exit');
+                this.screenFlash = 30; // Flash effect
+                this.createExitSparkles(); // Initial burst
             }
             this.updateHUD();
         }
@@ -856,6 +878,36 @@ class Game {
         }
     }
     
+    createExitSparkles() {
+        if (!this.exitPosition) return;
+        
+        const centerX = this.exitPosition.x * TILE_SIZE + TILE_SIZE / 2;
+        const centerY = this.exitPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Create sparkle particles around the exit
+        const sparkleCount = this.screenFlash > 0 ? 20 : 8; // More on initial burst
+        
+        for (let i = 0; i < sparkleCount; i++) {
+            const angle = (i / sparkleCount) * Math.PI * 2 + Math.random() * 0.5;
+            const distance = Math.random() * TILE_SIZE * 0.8;
+            const speed = this.screenFlash > 0 ? Math.random() * 2 + 1 : Math.random() * 0.8 + 0.3;
+            const size = Math.random() * 4 + 2;
+            const life = Math.random() * 30 + 20;
+            
+            this.particles.push({
+                x: centerX + Math.cos(angle) * distance,
+                y: centerY + Math.sin(angle) * distance,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 0.5, // Float upward
+                color: ['#00ff00', '#00ffff', '#ffff00', '#ffffff'][Math.floor(Math.random() * 4)],
+                size: size,
+                life: life,
+                gravity: -0.02, // Negative gravity (float up)
+                opacity: 0.9
+            });
+        }
+    }
+    
     createCrashAnimation(x, y) {
         const centerX = x * TILE_SIZE + TILE_SIZE / 2;
         const centerY = y * TILE_SIZE + TILE_SIZE / 2;
@@ -898,10 +950,35 @@ class Game {
         this.ctx.fillStyle = this.backgroundPattern;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Apply screen flash effect
+        if (this.screenFlash > 0) {
+            const flashAlpha = Math.min(0.4, this.screenFlash / 50);
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        
         if (this.grid && this.grid.length > 0) {
             for (let y = 0; y < this.grid.length; y++) {
                 for (let x = 0; x < this.grid[y].length; x++) {
                     this.drawTile(x, y, this.grid[y][x]);
+                    
+                    // Add glowing effect to exit when open
+                    if (this.exitOpen && this.exitPosition && 
+                        x === this.exitPosition.x && y === this.exitPosition.y) {
+                        const time = Date.now() / 1000;
+                        const pulse = Math.sin(time * 4) * 0.3 + 0.7;
+                        const posX = x * TILE_SIZE;
+                        const posY = y * TILE_SIZE;
+                        
+                        this.ctx.strokeStyle = `rgba(0, 255, 0, ${pulse})`;
+                        this.ctx.lineWidth = 3;
+                        this.ctx.strokeRect(posX + 2, posY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                        
+                        this.ctx.shadowColor = '#00ff00';
+                        this.ctx.shadowBlur = 15 * pulse;
+                        this.ctx.strokeRect(posX + 2, posY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                        this.ctx.shadowBlur = 0;
+                    }
                 }
             }
         }
