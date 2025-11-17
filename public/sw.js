@@ -8,18 +8,10 @@ const MAX_DYNAMIC_CACHE_SIZE = 50;
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/manifest.json',
-  '../src/game.js',
-  '../src/assets.js',
-  '../src/constants.js',
-  '../src/firebase-config.js',
-  '../src/level-generator.js',
-  '../src/physics.js',
-  '../src/sound.js',
-  '../src/utils.js'
+  './',
+  './index.html',
+  './style.css',
+  './manifest.json'
 ];
 
 // External resources (cache separately with different strategy)
@@ -97,13 +89,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
+  // Skip chrome-extension and other non-http(s) schemes
+  if (!url.protocol.startsWith('http')) {
+    return;
+  }
+  
   // Different strategies for different resource types
   if (STATIC_ASSETS.some(asset => request.url.includes(asset)) || 
       EXTERNAL_RESOURCES.some(resource => request.url.includes(resource))) {
     // Static assets: Cache first, fallback to network
     event.respondWith(cacheFirst(request));
   } else if (url.origin === location.origin) {
-    // Same-origin requests: Network first, fallback to cache
+    // Same-origin requests (including ES6 modules): Network first, fallback to cache
     event.respondWith(networkFirst(request));
   } else {
     // External resources: Cache first with network fallback
