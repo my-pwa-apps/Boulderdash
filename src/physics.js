@@ -472,10 +472,10 @@ export class GamePhysics {
                 const newX = enemy.x + dir.dx;
                 const newY = enemy.y + dir.dy;
                 
-                // Check if valid move
+                // Check if valid move - enemies can only move through EMPTY spaces or onto the PLAYER
+                // They CANNOT dig through dirt like in original Boulder Dash
                 if (isInBounds(newX, newY, this.width, this.height) &&
                     (this.grid[newY][newX] === ELEMENT_TYPES.EMPTY || 
-                     this.grid[newY][newX] === ELEMENT_TYPES.DIRT ||
                      this.grid[newY][newX] === ELEMENT_TYPES.PLAYER)) {
                     
                     // Check if moving onto player

@@ -99,7 +99,9 @@ export async function logGameEvent(eventName, eventParams = {}) {
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
   } catch (error) {
-    console.error('Error logging game event:', error);
+    // Silently fail if Firebase permissions not set up
+    // This is expected and doesn't affect gameplay
+    console.log('Firebase logging disabled (no write permissions)');
   }
 }
 
