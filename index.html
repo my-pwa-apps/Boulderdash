@@ -30,7 +30,7 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://www.gstatic.com">
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💎</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 192 192%22><rect width=%22192%22 height=%22192%22 fill=%22%23000%22 rx=%2248%22/><text x=%2296%22 y=%22150%22 font-size=%22120%22 text-anchor=%22middle%22 fill=%22%2300ffff%22>💎</text></svg>">
@@ -90,7 +90,7 @@
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js', { scope: './' })
+                navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
                         console.log('SW registered:', registration);
                         
@@ -123,6 +123,6 @@
         });
     </script>
     
-    <script type="module" src="/src/game.js"></script>
+    <script type="module" src="./src/game.js"></script>
 </body>
 </html>
