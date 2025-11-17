@@ -883,8 +883,8 @@ class Game {
         this.restartButton.classList.remove('hidden');
         this.startButton.classList.add('hidden');
         
-        // Log game over event and save high score
-        if (this.firebaseInitialized) {
+        // Log game over event and save high score (only for real players, not demo mode)
+        if (this.firebaseInitialized && !this.demoMode) {
             logGameEvent('game_over', { 
                 reason: reason, 
                 level: this.level, 
@@ -911,8 +911,8 @@ class Game {
         this.score += this.timeRemaining * 5;
         this.updateHUD();
         
-        // Log level complete event
-        if (this.firebaseInitialized) {
+        // Log level complete event (only for real players, not demo mode)
+        if (this.firebaseInitialized && !this.demoMode) {
             logGameEvent('level_complete', { 
                 level: this.level, 
                 score: this.score,
