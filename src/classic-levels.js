@@ -69,22 +69,22 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 12,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP..*W.....W.....W.....W.....W.........W
-W.WWWWWWW.WWWWW.WWWWW.WWWWW.WWWWWWWWW..W
-W..*W..*W...W..*W...W..*W...W.........EW
-WWW.WWW.WWW.WWW.WWW.WWW.WWW.WWWWWWWWWW.W
-W...W...W..*W...W...W..*W...W..........W
-W.WWWWWWW.WWWWW.WWWWW.WWWWW.WWWWWWWWW..W
-W...W...W...W..*W...W...W..*W..........W
-WWW.WWW.WWW.WWW.WWW.WWW.WWW.WWWWWWWWWW.W
-W...W..*W...W...W...W...W...W....###...W
-W.WWWWWWW.WWWWW.WWWWW.WWWWW.WWWW####W..W
-W...W...W...W..*W...W...W...W....###...W
-WWW.WWW.WWW.WWW.WWW.WWW.WWW.WWWWWWWWWW.W
-W..*W...W...W...W..*W...W...W..........W
-W.WWWWWWW.WWWWW.WWWWW.WWWWW.WWWWWWWWW..W
-W...W...W..*W...W...W...W..*W..........W
-W......................................W
+WP*...W.......W.......W.......W.......EW
+W.WWW.W.WWWWW.W.WWWWW.W.WWWWW.W.WWWWW.W
+W.W.*.W.W..*W.W.W..*W.W.W..*W.W.W..*W.W
+W.W.WWW.W.W.W.W.W.W.W.W.W.W.W.W.W.W.W.W
+W.W.....W.W...W.W.W...W.W.W...W.W.W...W
+W.WWWWWWW.WWWWW.W.WWWWW.W.WWWWW.W.WWW.W
+W.........W.....W.....W.W.....W.W.....W
+W.WWWWW.WWW.WWWWWWWWW.W.W.WWW.W.WWWWW.W
+W.W..*W.W.*.W.........W.W.W.*.W.....W.W
+W.W.W.W.W.W.WWWWWWWWWWW.W.W.W.WWWWW.W.W
+W.W.W.W.W.W...........W.W.W.W.....W.W.W
+W.W.W.W.W.WWWWWWWWWWW.W.W.W.WWWWW.W.W.W
+W.W.W.*.W.*.W.......W.*.W.*.W..*W.*.W.W
+W.W.WWWWWWW.W.WWWWW.WWWWWWW.W.W.W.W.W.W
+W.W.........W.....W.........W.W...W...W
+W.....................................W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         `,
         enemies: 2
