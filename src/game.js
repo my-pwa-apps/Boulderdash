@@ -65,6 +65,13 @@ class Game {
             logGameEvent('game_loaded');
         }
         
+        // Auto-play demo mode
+        this.demoMode = false;
+        this.demoTimeout = null;
+        this.aiPath = [];
+        this.aiMoveCounter = 0;
+        this.startDemoTimeout();
+        
         requestAnimationFrame(() => this.drawTitleScreen());
     }
     
@@ -107,19 +114,42 @@ class Game {
     }
     
     setupButtonListeners() {
-        this.startButton.addEventListener('click', () => this.startGame());
+        this.startButton.addEventListener('click', () => {
+            this.cancelDemoTimeout();
+            this.startGame();
+        });
         this.restartButton.addEventListener('click', () => this.restartGame());
         this.helpButton.addEventListener('click', () => {
+            this.cancelDemoTimeout();
             this.helpModal.style.display = 'block';
             if (this.isRunning) this.pauseGame();
         });
         this.closeHelpButton.addEventListener('click', () => {
             this.helpModal.style.display = 'none';
         });
+        
+        // Cancel demo timeout on any click interaction
+        document.addEventListener('click', () => {
+            if (!this.isRunning && !this.demoMode) {
+                this.cancelDemoTimeout();
+            }
+        });
     }
     
     setupEventListeners() {
         window.addEventListener('keydown', (e) => {
+            // If in demo mode, any key returns to splash screen
+            if (this.demoMode) {
+                e.preventDefault();
+                this.exitDemoMode();
+                return;
+            }
+            
+            // Cancel demo timeout if user presses any key on splash screen
+            if (!this.isRunning) {
+                this.cancelDemoTimeout();
+            }
+            
             // Handle space bar for grab action
             if (e.key === ' ' || e.code === 'Space') {
                 e.preventDefault();
@@ -198,22 +228,28 @@ class Game {
         this.canvas.style.height = `${Math.floor(height)}px`;
     }
     
-    startGame() {
+    startGame(isDemoMode = false) {
+        this.cancelDemoTimeout();
+        this.demoMode = isDemoMode;
         this.level = 1;
         this.score = 0;
         this.isRunning = true;
         this.gameOver = false;
         this.levelComplete = false;
-        this.startButton.classList.add('hidden');
-        this.restartButton.classList.remove('hidden');
+        
+        if (!isDemoMode) {
+            this.startButton.classList.add('hidden');
+            this.restartButton.classList.remove('hidden');
+        }
+        
         this.helpModal.style.display = 'none';
         this.loadLevel(this.level);
         this.startTimer();
         this.gameLoop();
         this.handleResize();
         
-        // Log game start event
-        if (this.firebaseInitialized) {
+        // Log game start event (not for demo mode)
+        if (this.firebaseInitialized && !isDemoMode) {
             logGameEvent('game_start', { level: this.level });
         }
     }
@@ -317,7 +353,17 @@ class Game {
             this.enemyMoveCounter = 0;
         }
         
-        if (this.playerNextDirection) {
+        // AI control in demo mode
+        if (this.demoMode) {
+            this.aiMoveCounter += cappedDelta;
+            if (this.aiMoveCounter >= 200) {
+                const aiDirection = this.getAIMove();
+                if (aiDirection) {
+                    this.handlePlayerMove(aiDirection);
+                }
+                this.aiMoveCounter = 0;
+            }
+        } else if (this.playerNextDirection) {
             // If space is pressed, grab item instead of moving
             if (this.spacePressed) {
                 this.handlePlayerGrab(this.playerNextDirection);
@@ -353,6 +399,124 @@ class Game {
         if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
             this.handlePlayerDeath('Crushed!');
         }
+    }
+    
+    getAIMove() {
+        // Simple AI that prioritizes: diamonds -> exit (if open) -> exploration
+        const px = this.playerPosition.x;
+        const py = this.playerPosition.y;
+        
+        // Find nearest target (diamond or exit if open)
+        let target = null;
+        let minDist = Infinity;
+        
+        // Look for diamonds
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                if (this.grid[y][x] === ELEMENT_TYPES.DIAMOND) {
+                    const dist = Math.abs(x - px) + Math.abs(y - py);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        target = { x, y };
+                    }
+                }
+            }
+        }
+        
+        // If exit is open and we have enough diamonds, prioritize exit
+        if (this.exitOpen && this.exitPosition) {
+            const exitDist = Math.abs(this.exitPosition.x - px) + Math.abs(this.exitPosition.y - py);
+            if (exitDist < minDist || !target) {
+                target = this.exitPosition;
+                minDist = exitDist;
+            }
+        }
+        
+        // If no target, explore (move towards center or random direction)
+        if (!target) {
+            const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+            // Try each direction and pick one that leads to dirt or empty space
+            for (const dir of directions) {
+                const newPos = this.getNewPosition(px, py, dir);
+                if (this.isValidAIMove(newPos.x, newPos.y)) {
+                    return dir;
+                }
+            }
+            return null;
+        }
+        
+        // Move towards target using simple pathfinding
+        const dx = target.x - px;
+        const dy = target.y - py;
+        
+        // Prioritize larger distance first
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Try horizontal first
+            const hDir = dx > 0 ? 'RIGHT' : 'LEFT';
+            const hPos = this.getNewPosition(px, py, hDir);
+            if (this.isValidAIMove(hPos.x, hPos.y)) {
+                return hDir;
+            }
+            // Try vertical as backup
+            if (dy !== 0) {
+                const vDir = dy > 0 ? 'DOWN' : 'UP';
+                const vPos = this.getNewPosition(px, py, vDir);
+                if (this.isValidAIMove(vPos.x, vPos.y)) {
+                    return vDir;
+                }
+            }
+        } else if (dy !== 0) {
+            // Try vertical first
+            const vDir = dy > 0 ? 'DOWN' : 'UP';
+            const vPos = this.getNewPosition(px, py, vDir);
+            if (this.isValidAIMove(vPos.x, vPos.y)) {
+                return vDir;
+            }
+            // Try horizontal as backup
+            if (dx !== 0) {
+                const hDir = dx > 0 ? 'RIGHT' : 'LEFT';
+                const hPos = this.getNewPosition(px, py, hDir);
+                if (this.isValidAIMove(hPos.x, hPos.y)) {
+                    return hDir;
+                }
+            }
+        }
+        
+        // Try any valid direction as last resort
+        const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+        for (const dir of directions) {
+            const newPos = this.getNewPosition(px, py, dir);
+            if (this.isValidAIMove(newPos.x, newPos.y)) {
+                return dir;
+            }
+        }
+        
+        return null;
+    }
+    
+    getNewPosition(x, y, direction) {
+        const newPos = { x, y };
+        switch (direction) {
+            case 'UP': newPos.y--; break;
+            case 'DOWN': newPos.y++; break;
+            case 'LEFT': newPos.x--; break;
+            case 'RIGHT': newPos.x++; break;
+        }
+        return newPos;
+    }
+    
+    isValidAIMove(x, y) {
+        // Check bounds
+        if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) {
+            return false;
+        }
+        
+        // Check if cell is safe to move into
+        const cell = this.grid[y][x];
+        return cell === ELEMENT_TYPES.EMPTY || 
+               cell === ELEMENT_TYPES.DIRT || 
+               cell === ELEMENT_TYPES.DIAMOND ||
+               (cell === ELEMENT_TYPES.EXIT && this.exitOpen);
     }
     
     handlePlayerMove(direction) {
@@ -562,6 +726,28 @@ class Game {
             this.drawMessage('LEVEL COMPLETE', `Score: ${this.score}`, '#00ff00');
         }
         
+        // Show demo mode indicator
+        if (this.demoMode && !this.gameOver && !this.levelComplete) {
+            const time = Date.now() / 1000;
+            const blink = Math.floor(time * 2) % 2;
+            if (blink) {
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                this.ctx.fillRect(10, 10, 200, 50);
+                this.ctx.strokeStyle = '#ffff00';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(10, 10, 200, 50);
+                
+                this.ctx.fillStyle = '#ffff00';
+                this.ctx.font = 'bold 20px Courier New';
+                this.ctx.textAlign = 'left';
+                this.ctx.textBaseline = 'top';
+                this.ctx.fillText('★ DEMO MODE ★', 20, 18);
+                this.ctx.font = '12px Courier New';
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillText('Press any key to exit', 20, 40);
+            }
+        }
+        
         this.ctx.restore();
     }
     
@@ -592,6 +778,36 @@ class Game {
         this.ctx.fillStyle = '#ffffff';
         this.ctx.font = '18px Arial';
         this.ctx.fillText(subtitle, centerX, centerY + 30);
+    }
+    
+    startDemoTimeout() {
+        this.cancelDemoTimeout();
+        this.demoTimeout = setTimeout(() => {
+            this.startGame(true); // Start in demo mode
+        }, 5000); // 5 seconds
+    }
+    
+    cancelDemoTimeout() {
+        if (this.demoTimeout) {
+            clearTimeout(this.demoTimeout);
+            this.demoTimeout = null;
+        }
+    }
+    
+    exitDemoMode() {
+        this.demoMode = false;
+        this.aiPath = [];
+        this.isRunning = false;
+        this.gameOver = false;
+        this.stopTimer();
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        this.startButton.classList.remove('hidden');
+        this.restartButton.classList.add('hidden');
+        this.startDemoTimeout();
+        requestAnimationFrame(() => this.drawTitleScreen());
     }
     
     drawTitleScreen() {
