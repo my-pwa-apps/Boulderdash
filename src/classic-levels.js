@@ -16,17 +16,17 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 WP..*........*.........*..............EW
 W....###.......###........####.........W
 W....###.......###........####.........W
-W......................................W
+W...*......*.......................*...W
 W...#######..........#########.........W
 W...#######..........#########.........W
 W......................................W
-W..............###.....................W
+W..........*...###...............*.....W
 W..............###.....................W
 W......................................W
 W.........############.................W
 W.........############.................W
-W......................................W
-W...........................*..###.....W
+W.......*..............................W
+W...*......................*..###.....W
 W...........................*..###.....W
 W......................................W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
@@ -41,7 +41,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 10,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP..W.....W.....W.....W.....W.........EW
+WP*.W.....W.....W...*.W.....W.........EW
 W...W..*..W..*..W..*..W..*..W..........W
 W...W.....W.....W.....W.....W..........W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWW...........W
@@ -97,7 +97,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 15,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP*..*..*..*..*..*..*..*..*..*........EW
 W.....WWWWW.......WWWWW.......WWWWW....W
 W.....W...W.......W...W.......W...W....W
 W.....W.F.W.......W.F.W.......W.F.W....W
@@ -125,7 +125,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 8,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP.....................................EW
+WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*..EW
 W......................................W
 W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWW....W
 W...W.........F.........F.........W....W
@@ -181,7 +181,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 5,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP*************************...........EW
 W.......................................W
 W.......................................W
 W...........WWWWWWWWWWWWW..............W
@@ -237,7 +237,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 6,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP******************************......EW
 W.......................................W
 W.......................................W
 W...........#############..............W
@@ -265,7 +265,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 15,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.....EW
 W...W...W...W...W...W...W...W...W...W..W
 W...W...W...W...W...W...W...W...W...W..W
 W...W...W...W...W...W...W...W...W...W..W
@@ -293,7 +293,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 10,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP************************............EW
 W.......................................W
 W...WWWWWWWWW...........WWWWWWWWWW....W
 W...W.......W.....F.....W.......W......W
@@ -321,7 +321,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 12,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP********************................EW
 WWWWWWWWWWWW...........WWWWWWWWWWWWWW.W
 W.......................................W
 W.WWWWWWWWWWWWWW....WWWWWWWWWWWWWWWWW.W
@@ -349,7 +349,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 8,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP****************************........EW
 W.......................................W
 W..#################################..W
 W..#################################..W
@@ -377,7 +377,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 14,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.EW
 W...W...............................W..W
 W.....W...........................W.....W
 W.......W.......................W.......W
@@ -405,7 +405,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 9,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP**************************..........EW
 W.......................................W
 W#####################################W
 W#####################################W
@@ -433,7 +433,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         diamondValue: 10,
         pattern: `
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP....................................EW
+WP******************************......EW
 W.......................................W
 W.......................................W
 W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..W

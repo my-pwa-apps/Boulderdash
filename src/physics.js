@@ -396,7 +396,7 @@ export class GamePhysics {
      * Optimized to use string-based Set lookup
      */
     isPlayerCrushed(playerX, playerY) {
-        // ONLY check if there's a boulder or diamond ON the player's position
+        // Check if there's a boulder or diamond ON the player's position
         // This happens when a falling object actually lands on them
         const playerElement = this.grid[playerY][playerX];
         if (playerElement === ELEMENT_TYPES.BOULDER || playerElement === ELEMENT_TYPES.DIAMOND) {
@@ -404,8 +404,16 @@ export class GamePhysics {
             return true;
         }
         
-        // Don't check for falling objects above - player should have time to escape!
-        // This matches original Boulder Dash gameplay
+        // Check if there's a falling boulder or diamond directly above the player
+        if (playerY > 0) {
+            const aboveElement = this.grid[playerY - 1][playerX];
+            if ((aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) &&
+                this.isFallingAt(playerX, playerY - 1)) {
+                // A falling object is directly above and will crush the player!
+                return true;
+            }
+        }
+        
         return false;
     }
     
