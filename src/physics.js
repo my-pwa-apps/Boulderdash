@@ -393,27 +393,20 @@ export class GamePhysics {
     
     /**
      * Check if player is crushed by a falling object
-     * Optimized to use string-based Set lookup
+     * Only returns true if a boulder/diamond has ACTUALLY landed on the player
+     * In classic Boulder Dash, you have one frame to escape before getting crushed
      */
     isPlayerCrushed(playerX, playerY) {
-        // Check if there's a boulder or diamond ON the player's position
-        // This happens when a falling object actually lands on them
+        // ONLY check if there's a boulder or diamond that has landed ON the player's position
+        // This happens when physics.update() moves a falling object onto the player
         const playerElement = this.grid[playerY][playerX];
         if (playerElement === ELEMENT_TYPES.BOULDER || playerElement === ELEMENT_TYPES.DIAMOND) {
-            // Something fell on the player - they're crushed!
+            // Something has actually landed on the player - they're crushed!
             return true;
         }
         
-        // Check if there's a falling boulder or diamond directly above the player
-        if (playerY > 0) {
-            const aboveElement = this.grid[playerY - 1][playerX];
-            if ((aboveElement === ELEMENT_TYPES.BOULDER || aboveElement === ELEMENT_TYPES.DIAMOND) &&
-                this.isFallingAt(playerX, playerY - 1)) {
-                // A falling object is directly above and will crush the player!
-                return true;
-            }
-        }
-        
+        // Do NOT check for falling objects above - this gives player time to escape
+        // This matches the original Boulder Dash gameplay feel
         return false;
     }
     
