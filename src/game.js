@@ -494,13 +494,30 @@ class Game {
             console.log('AI stuck - forcing random exploration');
             this.aiMemory.stuckCounter = 0;
             this.aiMemory.exploredCells.clear();
-            // Return random valid direction
+            
+            // Shuffle directions and exclude recently visited positions
             const dirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
-            for (let i = 0; i < dirs.length; i++) {
-                const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
-                const testMove = this.getNewPosition(px, py, randomDir);
+            // Shuffle array
+            for (let i = dirs.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+            }
+            
+            // Try each direction, preferring ones not in recent history
+            const recentSet = new Set(this.aiMemory.lastPositions.slice(-4));
+            for (const dir of dirs) {
+                const testMove = this.getNewPosition(px, py, dir);
+                const testKey = `${testMove.x},${testMove.y}`;
+                if (this.isValidAIMove(testMove.x, testMove.y) && !recentSet.has(testKey)) {
+                    return dir;
+                }
+            }
+            
+            // If all moves were recent, try any valid move
+            for (const dir of dirs) {
+                const testMove = this.getNewPosition(px, py, dir);
                 if (this.isValidAIMove(testMove.x, testMove.y)) {
-                    return randomDir;
+                    return dir;
                 }
             }
         }
