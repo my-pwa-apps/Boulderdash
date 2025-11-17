@@ -33,50 +33,85 @@ export function initializeFirebase() {
   }
 }
 
-// Save high score to localStorage (Firebase read-only)
+// Save high score to Firebase
 export async function saveHighScore(playerName, score, level) {
+  if (!database) {
+    console.warn('Firebase database not initialized');
+    return false;
+  }
+  
   try {
-    // Get existing high scores from localStorage
-    const scores = getHighScoresSync();
-    
-    // Add new score
-    scores.push({
-      playerName: playerName || 'Player',
+    const scoresRef = database.ref('highscores');
+    const newScoreRef = scoresRef.push();
+    await newScoreRef.set({
+      playerName: playerName,
       score: score,
       level: level,
-      timestamp: Date.now()
+      timestamp: firebase.database.ServerValue.TIMESTAMP
     });
-    
-    // Sort by score (descending) and keep top 100
-    scores.sort((a, b) => b.score - a.score);
-    const topScores = scores.slice(0, 100);
-    
-    // Save back to localStorage
-    localStorage.setItem('boulderdash_highscores', JSON.stringify(topScores));
-    console.log('High score saved to localStorage');
+    console.log('High score saved successfully');
     return true;
   } catch (error) {
     console.error('Error saving high score:', error);
+    console.error('⚠️ DATABASE PERMISSIONS ERROR - See instructions below:');
+    console.log(`
+📋 HOW TO FIX FIREBASE DATABASE PERMISSIONS:
+
+1. Go to: https://console.firebase.google.com/project/boulderdash-ae84b/database/boulderdash-ae84b-default-rtdb/rules
+
+2. Replace the rules with:
+   {
+     "rules": {
+       "highscores": {
+         ".read": true,
+         ".write": true
+       },
+       "game_events": {
+         ".read": false,
+         ".write": true
+       }
+     }
+   }
+
+3. Click "Publish" to apply the changes
+
+This allows:
+- Anyone can read/write high scores
+- Anyone can write game events (for analytics)
+- Game events cannot be read (privacy)
+    `);
     return false;
   }
 }
 
-// Get top high scores from localStorage
+// Get top high scores from Firebase
 export async function getHighScores(limit = 10) {
-  return getHighScoresSync().slice(0, limit);
-}
-
-// Synchronous helper for getting high scores
-function getHighScoresSync() {
-  try {
-    const stored = localStorage.getItem('boulderdash_highscores');
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (error) {
-    console.error('Error reading high scores:', error);
+  if (!database) {
+    console.warn('Firebase database not initialized');
+    return [];
   }
-  return [];
+  
+  try {
+    const scoresRef = database.ref('highscores');
+    const snapshot = await scoresRef
+      .orderByChild('score')
+      .limitToLast(limit)
+      .once('value');
+    
+    const scores = [];
+    snapshot.forEach((childSnapshot) => {
+      scores.push({
+        id: childSnapshot.key,
+        ...childSnapshot.val()
+      });
+    });
+    
+    // Sort descending by score
+    return scores.reverse();
+  } catch (error) {
+    console.error('Error fetching high scores:', error);
+    return [];
+  }
 }
 
 // Store game statistics in database (instead of analytics)

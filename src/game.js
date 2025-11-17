@@ -861,16 +861,16 @@ class Game {
                 level: this.level, 
                 score: this.score 
             });
-        }
-        
-        // Always save high score to localStorage
-        if (this.score > 0) {
-            saveHighScore('Player', this.score, this.level);
-            if (this.score > this.highScore) {
-                this.highScore = this.score;
-                this.updateHighScoreDisplay();
+            
+            // Save high score to Firebase
+            if (this.score > 0) {
+                saveHighScore('Player', this.score, this.level);
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    this.updateHighScoreDisplay();
+                }
+                this.showHighScoreMessage();
             }
-            this.showHighScoreMessage();
         }
     }
     
