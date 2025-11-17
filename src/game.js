@@ -406,6 +406,20 @@ class Game {
         const px = this.playerPosition.x;
         const py = this.playerPosition.y;
         
+        // Initialize last position tracking to detect if stuck
+        if (!this.aiLastPosition) {
+            this.aiLastPosition = { x: px, y: py };
+            this.aiStuckCounter = 0;
+        }
+        
+        // Check if stuck in same position
+        if (this.aiLastPosition.x === px && this.aiLastPosition.y === py) {
+            this.aiStuckCounter++;
+        } else {
+            this.aiStuckCounter = 0;
+            this.aiLastPosition = { x: px, y: py };
+        }
+        
         // Find nearest target (diamond or exit if open)
         let target = null;
         let minDist = Infinity;
@@ -432,66 +446,51 @@ class Game {
             }
         }
         
-        // If no target, explore (move towards center or random direction)
-        if (!target) {
-            const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
-            // Try each direction and pick one that leads to dirt or empty space
-            for (const dir of directions) {
-                const newPos = this.getNewPosition(px, py, dir);
-                if (this.isValidAIMove(newPos.x, newPos.y)) {
-                    return dir;
-                }
-            }
-            return null;
-        }
-        
-        // Move towards target using simple pathfinding
-        const dx = target.x - px;
-        const dy = target.y - py;
-        
-        // Prioritize larger distance first
-        if (Math.abs(dx) > Math.abs(dy)) {
-            // Try horizontal first
-            const hDir = dx > 0 ? 'RIGHT' : 'LEFT';
-            const hPos = this.getNewPosition(px, py, hDir);
-            if (this.isValidAIMove(hPos.x, hPos.y)) {
-                return hDir;
-            }
-            // Try vertical as backup
-            if (dy !== 0) {
-                const vDir = dy > 0 ? 'DOWN' : 'UP';
-                const vPos = this.getNewPosition(px, py, vDir);
-                if (this.isValidAIMove(vPos.x, vPos.y)) {
-                    return vDir;
-                }
-            }
-        } else if (dy !== 0) {
-            // Try vertical first
-            const vDir = dy > 0 ? 'DOWN' : 'UP';
-            const vPos = this.getNewPosition(px, py, vDir);
-            if (this.isValidAIMove(vPos.x, vPos.y)) {
-                return vDir;
-            }
-            // Try horizontal as backup
-            if (dx !== 0) {
-                const hDir = dx > 0 ? 'RIGHT' : 'LEFT';
-                const hPos = this.getNewPosition(px, py, hDir);
-                if (this.isValidAIMove(hPos.x, hPos.y)) {
-                    return hDir;
-                }
-            }
-        }
-        
-        // Try any valid direction as last resort
+        // Get all valid directions with priorities
+        const validMoves = [];
         const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+        
         for (const dir of directions) {
             const newPos = this.getNewPosition(px, py, dir);
             if (this.isValidAIMove(newPos.x, newPos.y)) {
-                return dir;
+                let priority = 0;
+                
+                // If we have a target, prioritize moves towards it
+                if (target) {
+                    const currentDist = Math.abs(target.x - px) + Math.abs(target.y - py);
+                    const newDist = Math.abs(target.x - newPos.x) + Math.abs(target.y - newPos.y);
+                    priority = currentDist - newDist; // Positive if moving closer
+                }
+                
+                // Prefer digging through dirt (exploration)
+                if (this.grid[newPos.y][newPos.x] === ELEMENT_TYPES.DIRT) {
+                    priority += 0.5;
+                }
+                
+                // Heavily prioritize diamonds in adjacent cells
+                if (this.grid[newPos.y][newPos.x] === ELEMENT_TYPES.DIAMOND) {
+                    priority += 100;
+                }
+                
+                validMoves.push({ dir, priority, pos: newPos });
             }
         }
         
-        return null;
+        // If stuck for too long, try random valid move
+        if (this.aiStuckCounter > 3 && validMoves.length > 0) {
+            const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+            this.aiStuckCounter = 0;
+            return randomMove.dir;
+        }
+        
+        // If no valid moves at all, return null
+        if (validMoves.length === 0) {
+            return null;
+        }
+        
+        // Sort by priority and pick the best move
+        validMoves.sort((a, b) => b.priority - a.priority);
+        return validMoves[0].dir;
     }
     
     getNewPosition(x, y, direction) {
@@ -797,6 +796,8 @@ class Game {
     exitDemoMode() {
         this.demoMode = false;
         this.aiPath = [];
+        this.aiLastPosition = null;
+        this.aiStuckCounter = 0;
         this.isRunning = false;
         this.gameOver = false;
         this.stopTimer();
