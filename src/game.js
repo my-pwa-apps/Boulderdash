@@ -476,20 +476,31 @@ class Game {
             }
         }
         
-        // If stuck for too long, try random valid move
-        if (this.aiStuckCounter > 3 && validMoves.length > 0) {
+        // If stuck for too long, try different strategies
+        if (this.aiStuckCounter > 2 && validMoves.length > 0) {
+            // Try a random move to break free
             const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
             this.aiStuckCounter = 0;
             return randomMove.dir;
         }
         
-        // If no valid moves at all, return null
+        // If no valid moves at all, we're truly stuck
         if (validMoves.length === 0) {
-            return null;
+            // Try to reset by attempting any direction (even walls, physics will handle it)
+            this.aiStuckCounter++;
+            const fallbackDirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
+            return fallbackDirs[Math.floor(Math.random() * fallbackDirs.length)];
         }
         
-        // Sort by priority and pick the best move
+        // Sort by priority and pick best move
         validMoves.sort((a, b) => b.priority - a.priority);
+        
+        // Add some randomness if top moves have similar priority
+        if (validMoves.length > 1 && Math.abs(validMoves[0].priority - validMoves[1].priority) < 0.1) {
+            // Randomly pick between top 2 moves for variety
+            return Math.random() > 0.5 ? validMoves[0].dir : validMoves[1].dir;
+        }
+        
         return validMoves[0].dir;
     }
     
@@ -512,10 +523,36 @@ class Game {
         
         // Check if cell is safe to move into
         const cell = this.grid[y][x];
-        return cell === ELEMENT_TYPES.EMPTY || 
-               cell === ELEMENT_TYPES.DIRT || 
-               cell === ELEMENT_TYPES.DIAMOND ||
-               (cell === ELEMENT_TYPES.EXIT && this.exitOpen);
+        const isValidCell = cell === ELEMENT_TYPES.EMPTY || 
+                           cell === ELEMENT_TYPES.DIRT || 
+                           cell === ELEMENT_TYPES.DIAMOND ||
+                           (cell === ELEMENT_TYPES.EXIT && this.exitOpen);
+        
+        if (!isValidCell) {
+            return false;
+        }
+        
+        // Check for boulders above that could fall
+        if (y > 0) {
+            const above = this.grid[y - 1][x];
+            if (above === ELEMENT_TYPES.BOULDER) {
+                // Check if boulder is likely to fall
+                const below = this.grid[y][x];
+                if (below === ELEMENT_TYPES.EMPTY || below === ELEMENT_TYPES.PLAYER) {
+                    return false; // Dangerous - boulder could fall
+                }
+            }
+        }
+        
+        // Avoid positions next to enemies
+        for (const enemy of this.enemies) {
+            const dist = Math.abs(enemy.x - x) + Math.abs(enemy.y - y);
+            if (dist <= 1) {
+                return false; // Too close to enemy
+            }
+        }
+        
+        return true;
     }
     
     handlePlayerMove(direction) {
