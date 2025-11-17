@@ -402,106 +402,237 @@ class Game {
     }
     
     getAIMove() {
-        // Simple AI that prioritizes: diamonds -> exit (if open) -> exploration
         const px = this.playerPosition.x;
         const py = this.playerPosition.y;
         
-        // Initialize last position tracking to detect if stuck
-        if (!this.aiLastPosition) {
-            this.aiLastPosition = { x: px, y: py };
-            this.aiStuckCounter = 0;
+        // Initialize AI memory
+        if (!this.aiMemory) {
+            this.aiMemory = {
+                lastPositions: [],
+                exploredCells: new Set(),
+                targetCache: null,
+                stuckCounter: 0,
+                lastMoveTime: Date.now()
+            };
         }
         
-        // Check if stuck in same position
-        if (this.aiLastPosition.x === px && this.aiLastPosition.y === py) {
-            this.aiStuckCounter++;
+        // Track position history (last 10 moves)
+        const posKey = `${px},${py}`;
+        this.aiMemory.lastPositions.push(posKey);
+        if (this.aiMemory.lastPositions.length > 10) {
+            this.aiMemory.lastPositions.shift();
+        }
+        
+        // Detect if stuck (same position repeated or oscillating)
+        const recentPositions = this.aiMemory.lastPositions.slice(-6);
+        const uniquePositions = new Set(recentPositions);
+        const isStuck = uniquePositions.size <= 2 && recentPositions.length >= 4;
+        
+        if (isStuck) {
+            this.aiMemory.stuckCounter++;
         } else {
-            this.aiStuckCounter = 0;
-            this.aiLastPosition = { x: px, y: py };
+            this.aiMemory.stuckCounter = Math.max(0, this.aiMemory.stuckCounter - 1);
         }
         
-        // Find nearest target (diamond or exit if open)
-        let target = null;
-        let minDist = Infinity;
+        // Mark current cell as explored
+        this.aiMemory.exploredCells.add(posKey);
         
-        // Look for diamonds
+        // Find best target using A* pathfinding
+        let target = this.findBestTarget(px, py);
+        
+        // If no target or severely stuck, explore random unexplored areas
+        if (!target || this.aiMemory.stuckCounter > 4) {
+            target = this.findUnexploredTarget(px, py);
+            this.aiMemory.stuckCounter = 0;
+        }
+        
+        // Get next move using pathfinding
+        if (target) {
+            const path = this.findPathAStar(px, py, target.x, target.y);
+            if (path && path.length > 1) {
+                const nextPos = path[1]; // path[0] is current position
+                return this.getDirectionToPosition(px, py, nextPos.x, nextPos.y);
+            }
+        }
+        
+        // Fallback: evaluate all valid moves with scoring
+        const validMoves = this.evaluateAllMoves(px, py, target);
+        
+        if (validMoves.length === 0) {
+            // Last resort: try any direction to force movement
+            const dirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
+            return dirs[Math.floor(Math.random() * dirs.length)];
+        }
+        
+        // Pick best move, with some randomness if stuck
+        if (this.aiMemory.stuckCounter > 2) {
+            // Pick random from top 3 moves
+            const topMoves = validMoves.slice(0, Math.min(3, validMoves.length));
+            return topMoves[Math.floor(Math.random() * topMoves.length)].dir;
+        }
+        
+        return validMoves[0].dir;
+    }
+    
+    findBestTarget(px, py) {
+        let bestTarget = null;
+        let bestScore = -Infinity;
+        
+        // Scan for diamonds
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
                 if (this.grid[y][x] === ELEMENT_TYPES.DIAMOND) {
                     const dist = Math.abs(x - px) + Math.abs(y - py);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        target = { x, y };
+                    const score = 100 / (dist + 1); // Closer diamonds score higher
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestTarget = { x, y, type: 'diamond' };
                     }
                 }
             }
         }
         
-        // If exit is open and we have enough diamonds, prioritize exit
+        // Consider exit if open and enough diamonds collected
         if (this.exitOpen && this.exitPosition) {
-            const exitDist = Math.abs(this.exitPosition.x - px) + Math.abs(this.exitPosition.y - py);
-            if (exitDist < minDist || !target) {
-                target = this.exitPosition;
-                minDist = exitDist;
+            const dist = Math.abs(this.exitPosition.x - px) + Math.abs(this.exitPosition.y - py);
+            const score = 200 / (dist + 1); // Exit scores very high when open
+            if (score > bestScore) {
+                bestTarget = { x: this.exitPosition.x, y: this.exitPosition.y, type: 'exit' };
             }
         }
         
-        // Get all valid directions with priorities
+        return bestTarget;
+    }
+    
+    findUnexploredTarget(px, py) {
+        // Find nearest unexplored cell with dirt
+        let bestTarget = null;
+        let minDist = Infinity;
+        
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                const posKey = `${x},${y}`;
+                if (!this.aiMemory.exploredCells.has(posKey) && 
+                    this.grid[y][x] === ELEMENT_TYPES.DIRT) {
+                    const dist = Math.abs(x - px) + Math.abs(y - py);
+                    if (dist < minDist && dist > 0) {
+                        minDist = dist;
+                        bestTarget = { x, y, type: 'explore' };
+                    }
+                }
+            }
+        }
+        
+        return bestTarget;
+    }
+    
+    findPathAStar(startX, startY, goalX, goalY) {
+        const openSet = [{ x: startX, y: startY, g: 0, h: 0, f: 0, parent: null }];
+        const closedSet = new Set();
+        
+        while (openSet.length > 0) {
+            // Get node with lowest f score
+            openSet.sort((a, b) => a.f - b.f);
+            const current = openSet.shift();
+            
+            // Reached goal
+            if (current.x === goalX && current.y === goalY) {
+                return this.reconstructPath(current);
+            }
+            
+            closedSet.add(`${current.x},${current.y}`);
+            
+            // Check all neighbors
+            const neighbors = [
+                { x: current.x + 1, y: current.y },
+                { x: current.x - 1, y: current.y },
+                { x: current.x, y: current.y + 1 },
+                { x: current.x, y: current.y - 1 }
+            ];
+            
+            for (const neighbor of neighbors) {
+                const key = `${neighbor.x},${neighbor.y}`;
+                
+                if (closedSet.has(key) || !this.isValidAIMove(neighbor.x, neighbor.y)) {
+                    continue;
+                }
+                
+                const g = current.g + 1;
+                const h = Math.abs(neighbor.x - goalX) + Math.abs(neighbor.y - goalY);
+                const f = g + h;
+                
+                const existing = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
+                if (!existing || g < existing.g) {
+                    if (existing) {
+                        openSet.splice(openSet.indexOf(existing), 1);
+                    }
+                    openSet.push({ ...neighbor, g, h, f, parent: current });
+                }
+            }
+            
+            // Prevent infinite loops
+            if (closedSet.size > 100) break;
+        }
+        
+        return null; // No path found
+    }
+    
+    reconstructPath(node) {
+        const path = [];
+        let current = node;
+        while (current) {
+            path.unshift({ x: current.x, y: current.y });
+            current = current.parent;
+        }
+        return path;
+    }
+    
+    evaluateAllMoves(px, py, target) {
         const validMoves = [];
         const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
         
         for (const dir of directions) {
             const newPos = this.getNewPosition(px, py, dir);
-            if (this.isValidAIMove(newPos.x, newPos.y)) {
-                let priority = 0;
-                
-                // If we have a target, prioritize moves towards it
-                if (target) {
-                    const currentDist = Math.abs(target.x - px) + Math.abs(target.y - py);
-                    const newDist = Math.abs(target.x - newPos.x) + Math.abs(target.y - newPos.y);
-                    priority = currentDist - newDist; // Positive if moving closer
-                }
-                
-                // Prefer digging through dirt (exploration)
-                if (this.grid[newPos.y][newPos.x] === ELEMENT_TYPES.DIRT) {
-                    priority += 0.5;
-                }
-                
-                // Heavily prioritize diamonds in adjacent cells
-                if (this.grid[newPos.y][newPos.x] === ELEMENT_TYPES.DIAMOND) {
-                    priority += 100;
-                }
-                
-                validMoves.push({ dir, priority, pos: newPos });
+            if (!this.isValidAIMove(newPos.x, newPos.y)) continue;
+            
+            let score = 0;
+            const cell = this.grid[newPos.y][newPos.x];
+            
+            // Base scores
+            if (cell === ELEMENT_TYPES.DIAMOND) score += 1000;
+            if (cell === ELEMENT_TYPES.DIRT) score += 5;
+            if (cell === ELEMENT_TYPES.EMPTY) score += 2;
+            
+            // Distance to target
+            if (target) {
+                const currentDist = Math.abs(target.x - px) + Math.abs(target.y - py);
+                const newDist = Math.abs(target.x - newPos.x) + Math.abs(target.y - newPos.y);
+                score += (currentDist - newDist) * 10;
             }
+            
+            // Penalize recently visited cells
+            const posKey = `${newPos.x},${newPos.y}`;
+            const recentVisits = this.aiMemory.lastPositions.filter(p => p === posKey).length;
+            score -= recentVisits * 20;
+            
+            // Prefer unexplored areas
+            if (!this.aiMemory.exploredCells.has(posKey)) {
+                score += 15;
+            }
+            
+            validMoves.push({ dir, score, pos: newPos });
         }
         
-        // If stuck for too long, try different strategies
-        if (this.aiStuckCounter > 2 && validMoves.length > 0) {
-            // Try a random move to break free
-            const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
-            this.aiStuckCounter = 0;
-            return randomMove.dir;
-        }
-        
-        // If no valid moves at all, we're truly stuck
-        if (validMoves.length === 0) {
-            // Try to reset by attempting any direction (even walls, physics will handle it)
-            this.aiStuckCounter++;
-            const fallbackDirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
-            return fallbackDirs[Math.floor(Math.random() * fallbackDirs.length)];
-        }
-        
-        // Sort by priority and pick best move
-        validMoves.sort((a, b) => b.priority - a.priority);
-        
-        // Add some randomness if top moves have similar priority
-        if (validMoves.length > 1 && Math.abs(validMoves[0].priority - validMoves[1].priority) < 0.1) {
-            // Randomly pick between top 2 moves for variety
-            return Math.random() > 0.5 ? validMoves[0].dir : validMoves[1].dir;
-        }
-        
-        return validMoves[0].dir;
+        validMoves.sort((a, b) => b.score - a.score);
+        return validMoves;
+    }
+    
+    getDirectionToPosition(fromX, fromY, toX, toY) {
+        if (toX > fromX) return 'RIGHT';
+        if (toX < fromX) return 'LEFT';
+        if (toY > fromY) return 'DOWN';
+        if (toY < fromY) return 'UP';
+        return 'RIGHT'; // Default
     }
     
     getNewPosition(x, y, direction) {
@@ -515,7 +646,7 @@ class Game {
         return newPos;
     }
     
-    isValidAIMove(x, y) {
+    isValidAIMove(x, y, allowRisky = false) {
         // Check bounds
         if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) {
             return false;
@@ -532,23 +663,50 @@ class Game {
             return false;
         }
         
-        // Check for boulders above that could fall
-        if (y > 0) {
-            const above = this.grid[y - 1][x];
-            if (above === ELEMENT_TYPES.BOULDER) {
-                // Check if boulder is likely to fall
-                const below = this.grid[y][x];
-                if (below === ELEMENT_TYPES.EMPTY || below === ELEMENT_TYPES.PLAYER) {
-                    return false; // Dangerous - boulder could fall
+        if (!allowRisky) {
+            // Check for boulders directly above
+            if (y > 0) {
+                const above = this.grid[y - 1][x];
+                if (above === ELEMENT_TYPES.BOULDER) {
+                    // Check if we're moving under a suspended boulder
+                    const cellBelow = y < GRID_HEIGHT - 1 ? this.grid[y + 1][x] : null;
+                    if (cell === ELEMENT_TYPES.EMPTY || cell === ELEMENT_TYPES.DIRT) {
+                        return false; // Dangerous - could be crushed
+                    }
                 }
             }
-        }
-        
-        // Avoid positions next to enemies
-        for (const enemy of this.enemies) {
-            const dist = Math.abs(enemy.x - x) + Math.abs(enemy.y - y);
-            if (dist <= 1) {
-                return false; // Too close to enemy
+            
+            // Check diagonally for boulders that might roll
+            if (y > 0) {
+                // Check left diagonal
+                if (x > 0 && this.grid[y - 1][x - 1] === ELEMENT_TYPES.BOULDER) {
+                    const belowBoulder = this.grid[y][x - 1];
+                    const targetLeft = this.grid[y][x - 1];
+                    if (belowBoulder === ELEMENT_TYPES.BOULDER || belowBoulder === ELEMENT_TYPES.WALL) {
+                        if (cell === ELEMENT_TYPES.EMPTY) {
+                            return false; // Boulder might roll here
+                        }
+                    }
+                }
+                // Check right diagonal
+                if (x < GRID_WIDTH - 1 && this.grid[y - 1][x + 1] === ELEMENT_TYPES.BOULDER) {
+                    const belowBoulder = this.grid[y][x + 1];
+                    if (belowBoulder === ELEMENT_TYPES.BOULDER || belowBoulder === ELEMENT_TYPES.WALL) {
+                        if (cell === ELEMENT_TYPES.EMPTY) {
+                            return false; // Boulder might roll here
+                        }
+                    }
+                }
+            }
+            
+            // Avoid positions next to enemies
+            if (this.enemies && this.enemies.length > 0) {
+                for (const enemy of this.enemies) {
+                    const dist = Math.abs(enemy.x - x) + Math.abs(enemy.y - y);
+                    if (dist <= 1) {
+                        return false; // Too close to enemy
+                    }
+                }
             }
         }
         
@@ -833,8 +991,7 @@ class Game {
     exitDemoMode() {
         this.demoMode = false;
         this.aiPath = [];
-        this.aiLastPosition = null;
-        this.aiStuckCounter = 0;
+        this.aiMemory = null; // Reset AI memory
         this.isRunning = false;
         this.gameOver = false;
         this.stopTimer();
