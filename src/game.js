@@ -310,11 +310,15 @@ class Game {
         this.exitPosition = levelData.exitPosition;
         this.enemies = levelData.enemies;
         this.requiredDiamonds = levelData.requiredDiamonds;
+        this.levelName = levelData.levelName || `Cave ${String.fromCharCode(64 + levelNumber)}`;
         this.diamondsCollected = 0;
         this.exitOpen = false;
         this.particles = [];
         this.playerAnimationFrame = 0;
         this.playerAnimationCounter = 0;
+        
+        // Set time limit from level data or use default
+        this.timeRemaining = levelData.timeLimit || (GAME_SETTINGS.INITIAL_TIME + (levelNumber * 30));
         
         this.physics = new GamePhysics(this.grid);
         const { x, y } = this.playerPosition;
@@ -327,7 +331,8 @@ class Game {
         this.scoreElement.textContent = `Score: ${this.score}`;
         this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
         this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
-        this.levelElement.textContent = `Level: ${this.level}`;
+        const caveName = this.levelName ? ` - ${this.levelName}` : '';
+        this.levelElement.textContent = `Cave ${String.fromCharCode(64 + this.level)}${caveName}`;
         this.timeElement.style.color = '#ffcc00';
     }
     

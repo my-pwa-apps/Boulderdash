@@ -1,63 +1,164 @@
 import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js';
 import { getRandomInt, createGrid, isInBounds, shuffleArray } from './utils.js';
+import { CLASSIC_CAVES, parsePattern } from './classic-levels.js';
 
 /**
- * Generate a random level for the game
+ * Generate a level for the game
+ * Levels 1-16: Classic Boulder Dash caves
+ * Levels 17+: Procedurally generated based on classic patterns
  * @param {number} level - Current level number (affects difficulty)
  * @returns {Object} - Level data
  */
 export function generateLevel(level) {
-    // Normalize level difficulty (1-5 scale)
-    const difficulty = Math.min(5, Math.max(1, level));
+    // For levels 1-16, use classic caves
+    if (level >= 1 && level <= 16) {
+        return generateClassicLevel(level);
+    }
     
-    // Create empty grid
-    const grid = createGrid(GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES.EMPTY);
+    // For levels 17+, use enhanced procedural generation
+    return generateProceduralLevel(level);
+}
+
+/**
+ * Generate a classic Boulder Dash cave (levels 1-16)
+ */
+function generateClassicLevel(level) {
+    const caveIndex = level - 1;
+    const cave = CLASSIC_CAVES[caveIndex];
     
-    // Fill grid with level elements
-    addWalls(grid);
-    addDirt(grid);
+    const parsed = parsePattern(cave.pattern, GRID_WIDTH, GRID_HEIGHT);
     
-    // Add interactive elements (their quantity depends on the level difficulty)
-    const diamondCount = 20 + (difficulty * 5);
-    const boulderCount = 30 + (difficulty * 7);
-    // No enemies on level 1 - they appear in later levels
-    const enemyCount = level === 1 ? 0 : Math.floor(difficulty * 1.5);
+    return {
+        grid: parsed.grid,
+        playerPosition: parsed.playerPos,
+        exitPosition: parsed.exitPos,
+        diamonds: parsed.diamonds,
+        enemies: parsed.enemies,
+        requiredDiamonds: cave.diamondsRequired,
+        levelNumber: level,
+        levelName: cave.name,
+        timeLimit: cave.timeLimit
+    };
+}
+
+/**
+ * Generate procedural level based on classic cave patterns (level 17+)
+ */
+function generateProceduralLevel(level) {
+    // Use classic caves as templates, combining and modifying them
+    const templateIndex = (level - 17) % CLASSIC_CAVES.length;
+    const template = CLASSIC_CAVES[templateIndex];
     
+    // Normalize level difficulty (1-10 scale for advanced levels)
+    const difficulty = Math.min(10, Math.max(1, Math.floor((level - 16) / 2) + 1));
+    
+    // Start with template pattern but add variation
+    const parsed = parsePattern(template.pattern, GRID_WIDTH, GRID_HEIGHT);
+    const grid = parsed.grid;
+    
+    // Modify the template grid
+    enhanceGrid(grid, difficulty, level);
+    
+    // Add additional elements based on difficulty
+    const diamondCount = template.diamondsRequired + (difficulty * 3);
+    const boulderCount = 20 + (difficulty * 8);
+    const enemyCount = template.enemies + difficulty;
+    
+    // Add more boulders
     addBoulders(grid, boulderCount);
-    const diamonds = addDiamonds(grid, diamondCount);
     
-    // Place player at top left area (with some safe space)
-    const playerPos = placeElement(grid, ELEMENT_TYPES.PLAYER, 2, 2, 5, 5);
+    // Add more diamonds
+    const allDiamonds = addDiamonds(grid, diamondCount);
     
-    // Place exit at bottom right area
-    const exitPos = placeElement(grid, ELEMENT_TYPES.EXIT, 
-        GRID_WIDTH - 6, GRID_HEIGHT - 6, 
-        GRID_WIDTH - 3, GRID_HEIGHT - 3);
+    // Place player (reuse from template or find new position)
+    let playerPos = parsed.playerPos;
+    if (!playerPos || Math.random() > 0.5) {
+        playerPos = placeElement(grid, ELEMENT_TYPES.PLAYER, 2, 2, 6, 6);
+    }
     
-    // Add enemies
-    const enemies = [];
-    for (let i = 0; i < enemyCount; i++) {
-        // Keep enemies away from player starting position
+    // Place exit (reuse from template or find new position)
+    let exitPos = parsed.exitPos;
+    if (!exitPos || Math.random() > 0.5) {
+        exitPos = placeElement(grid, ELEMENT_TYPES.EXIT, 
+            GRID_WIDTH - 7, GRID_HEIGHT - 7, 
+            GRID_WIDTH - 2, GRID_HEIGHT - 2);
+    }
+    
+    // Add more enemies
+    const allEnemies = [...parsed.enemies];
+    for (let i = parsed.enemies.length; i < enemyCount; i++) {
         const enemyPos = placeElement(grid, ELEMENT_TYPES.ENEMY, 
             8, 8, GRID_WIDTH - 3, GRID_HEIGHT - 3);
-        
         if (enemyPos) {
-            enemies.push(enemyPos);
+            allEnemies.push(enemyPos);
         }
     }
     
-    // Calculate minimum required diamonds
-    const requiredDiamonds = Math.ceil(diamonds.length * 0.7);
+    // Calculate required diamonds (gets harder)
+    const requiredDiamonds = Math.ceil(allDiamonds.length * (0.65 + difficulty * 0.02));
+    
+    // Calculate time limit (gets tighter)
+    const timeLimit = Math.max(90, template.timeLimit - difficulty * 5);
     
     return {
         grid,
         playerPosition: playerPos,
         exitPosition: exitPos,
-        diamonds: diamonds,
-        enemies,
+        diamonds: allDiamonds,
+        enemies: allEnemies,
         requiredDiamonds,
-        levelNumber: level
+        levelNumber: level,
+        levelName: `${template.name} +${level - 16}`,
+        timeLimit
     };
+}
+
+/**
+ * Enhance a grid with additional complexity
+ */
+function enhanceGrid(grid, difficulty, level) {
+    const width = grid[0].length;
+    const height = grid.length;
+    
+    // Add random walls to increase complexity
+    const wallSegments = Math.floor(difficulty / 2);
+    for (let i = 0; i < wallSegments; i++) {
+        const isHorizontal = Math.random() > 0.5;
+        
+        if (isHorizontal) {
+            const wallY = getRandomInt(3, height - 4);
+            const wallStartX = getRandomInt(3, width - 8);
+            const wallLength = getRandomInt(3, 7);
+            
+            for (let x = wallStartX; x < Math.min(width - 2, wallStartX + wallLength); x++) {
+                if (Math.random() > 0.6 && grid[wallY][x] === ELEMENT_TYPES.DIRT) {
+                    grid[wallY][x] = ELEMENT_TYPES.WALL;
+                }
+            }
+        } else {
+            const wallX = getRandomInt(3, width - 4);
+            const wallStartY = getRandomInt(3, height - 8);
+            const wallLength = getRandomInt(3, 7);
+            
+            for (let y = wallStartY; y < Math.min(height - 2, wallStartY + wallLength); y++) {
+                if (Math.random() > 0.6 && grid[y][wallX] === ELEMENT_TYPES.DIRT) {
+                    grid[y][wallX] = ELEMENT_TYPES.WALL;
+                }
+            }
+        }
+    }
+    
+    // Randomly convert some dirt to empty space (creates caves)
+    if (difficulty > 3) {
+        const emptyCount = Math.floor(difficulty * 5);
+        for (let i = 0; i < emptyCount; i++) {
+            const x = getRandomInt(2, width - 3);
+            const y = getRandomInt(2, height - 3);
+            if (grid[y][x] === ELEMENT_TYPES.DIRT) {
+                grid[y][x] = ELEMENT_TYPES.EMPTY;
+            }
+        }
+    }
 }
 
 /**
