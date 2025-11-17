@@ -480,6 +480,8 @@ class Game {
         
         if (isStuck || isOscillating) {
             this.aiMemory.stuckCounter++;
+            // Clear target cache when stuck
+            this.aiMemory.targetCache = null;
         } else {
             this.aiMemory.stuckCounter = Math.max(0, this.aiMemory.stuckCounter - 1);
         }
@@ -487,13 +489,33 @@ class Game {
         // Mark current cell as explored
         this.aiMemory.exploredCells.add(posKey);
         
+        // If severely stuck (immediate action on oscillation), force random move
+        if (this.aiMemory.stuckCounter >= 2) {
+            console.log('AI stuck - forcing random exploration');
+            this.aiMemory.stuckCounter = 0;
+            this.aiMemory.exploredCells.clear();
+            // Return random valid direction
+            const dirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
+            for (let i = 0; i < dirs.length; i++) {
+                const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
+                const testMove = this.getNewPosition(px, py, randomDir);
+                if (this.physics.canMove(testMove.x, testMove.y)) {
+                    return randomDir;
+                }
+            }
+        }
+        
         // Find best target using A* pathfinding
         let target = this.findBestTarget(px, py);
         
-        // If no target or stuck (reduced threshold from 4 to 2), explore random unexplored areas
-        if (!target || this.aiMemory.stuckCounter > 2) {
+        // If no target or mildly stuck, explore random unexplored areas
+        if (!target || this.aiMemory.stuckCounter >= 1) {
             target = this.findUnexploredTarget(px, py);
-            this.aiMemory.stuckCounter = 0;
+            if (!target) {
+                // No unexplored areas, clear memory and try again
+                this.aiMemory.exploredCells.clear();
+                this.aiMemory.stuckCounter = 0;
+            }
         }
         
         // Get next move using pathfinding
@@ -509,9 +531,16 @@ class Game {
         const validMoves = this.evaluateAllMoves(px, py, target);
         
         if (validMoves.length === 0) {
-            // Last resort: try any direction to force movement
+            // Last resort: try any valid direction
             const dirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
-            return dirs[Math.floor(Math.random() * dirs.length)];
+            for (let i = 0; i < dirs.length; i++) {
+                const dir = dirs[Math.floor(Math.random() * dirs.length)];
+                const testPos = this.getNewPosition(px, py, dir);
+                if (this.physics.canMove(testPos.x, testPos.y)) {
+                    return dir;
+                }
+            }
+            return 'RIGHT'; // Ultimate fallback
         }
         
         // Pick best move, with some randomness if stuck
