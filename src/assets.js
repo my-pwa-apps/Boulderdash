@@ -127,37 +127,52 @@ export function generateAssets() {
 }
 
 /**
- * Draw a procedural wall tile
+ * Draw a procedural wall tile (Metal Plate Style)
  * @param {CanvasRenderingContext2D} ctx - The canvas context
  * @param {string} color - The main color
  */
 function drawWall(ctx, color) {
-    const brickWidth = TILE_SIZE / 4;
-    const brickHeight = TILE_SIZE / 3;
-    const darkColor = darkenColor(color, 0.7);
-    
-    // Draw brick pattern
+    // Base metal plate
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
     
-    ctx.fillStyle = darkColor;
+    const darkColor = darkenColor(color, 0.6);
+    const lightColor = lightenColor(color, 0.4);
     
-    // Draw horizontal lines
-    for (let y = brickHeight; y < TILE_SIZE; y += brickHeight) {
-        ctx.fillRect(0, y - 1, TILE_SIZE, 2);
-    }
+    // Inner plate (bevel effect)
+    ctx.fillStyle = darkenColor(color, 0.8);
+    ctx.fillRect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4);
     
-    // Draw vertical lines (staggered)
-    for (let row = 0; row < 3; row++) {
-        const offset = row % 2 ? 0 : brickWidth / 2;
-        for (let x = offset; x < TILE_SIZE; x += brickWidth) {
-            ctx.fillRect(x - 1, row * brickHeight, 2, brickHeight);
-        }
-    }
+    ctx.fillStyle = color;
+    ctx.fillRect(4, 4, TILE_SIZE - 8, TILE_SIZE - 8);
+    
+    // Rivets in corners
+    ctx.fillStyle = lightColor;
+    const rivetSize = 3;
+    const offset = 6;
+    
+    // Top-left
+    ctx.beginPath(); ctx.arc(offset, offset, rivetSize, 0, Math.PI*2); ctx.fill();
+    // Top-right
+    ctx.beginPath(); ctx.arc(TILE_SIZE-offset, offset, rivetSize, 0, Math.PI*2); ctx.fill();
+    // Bottom-left
+    ctx.beginPath(); ctx.arc(offset, TILE_SIZE-offset, rivetSize, 0, Math.PI*2); ctx.fill();
+    // Bottom-right
+    ctx.beginPath(); ctx.arc(TILE_SIZE-offset, TILE_SIZE-offset, rivetSize, 0, Math.PI*2); ctx.fill();
+    
+    // Cross pattern
+    ctx.strokeStyle = darkColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(4, 4);
+    ctx.lineTo(TILE_SIZE-4, TILE_SIZE-4);
+    ctx.moveTo(TILE_SIZE-4, 4);
+    ctx.lineTo(4, TILE_SIZE-4);
+    ctx.stroke();
 }
 
 /**
- * Draw a procedural dirt tile
+ * Draw a procedural dirt tile (Textured)
  * @param {CanvasRenderingContext2D} ctx - The canvas context
  * @param {string} color - The main color
  */
@@ -167,28 +182,32 @@ function drawDirt(ctx, color) {
     ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
     
     // Add specs and variations
-    const darkColor = darkenColor(color, 0.7);
-    const lightColor = lightenColor(color, 0.7);
+    const darkColor = darkenColor(color, 0.6);
+    const lightColor = lightenColor(color, 0.4);
     
-    ctx.fillStyle = darkColor;
-    for (let i = 0; i < 15; i++) {
-        const size = Math.random() * 3 + 1;
-        const x = Math.random() * TILE_SIZE;
-        const y = Math.random() * TILE_SIZE;
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    ctx.fillStyle = lightColor;
-    for (let i = 0; i < 10; i++) {
+    // Noise texture
+    for (let i = 0; i < 40; i++) {
         const size = Math.random() * 2 + 1;
         const x = Math.random() * TILE_SIZE;
         const y = Math.random() * TILE_SIZE;
+        
+        ctx.fillStyle = Math.random() > 0.5 ? darkColor : lightColor;
+        ctx.globalAlpha = Math.random() * 0.5 + 0.3;
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
     }
+    ctx.globalAlpha = 1.0;
+    
+    // Subtle grid lines for "diggable" look
+    ctx.strokeStyle = darkenColor(color, 0.8);
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, TILE_SIZE/2);
+    ctx.lineTo(TILE_SIZE, TILE_SIZE/2);
+    ctx.moveTo(TILE_SIZE/2, 0);
+    ctx.lineTo(TILE_SIZE/2, TILE_SIZE);
+    ctx.stroke();
 }
 
 /**

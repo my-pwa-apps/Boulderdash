@@ -10,7 +10,8 @@ import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from '
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for no transparency
+        this.ctx.imageSmoothingEnabled = false; // Ensure crisp pixel art
         this.canvas.width = GRID_WIDTH * TILE_SIZE;
         this.canvas.height = GRID_HEIGHT * TILE_SIZE;
         this.screenShake = 0;
@@ -85,19 +86,24 @@ class Game {
     
     createBackgroundPattern() {
         const patternCanvas = document.createElement('canvas');
-        patternCanvas.width = 20;
-        patternCanvas.height = 20;
+        patternCanvas.width = 64;
+        patternCanvas.height = 64;
         const patternCtx = patternCanvas.getContext('2d');
-        patternCtx.fillStyle = '#0a0a0a';
-        patternCtx.fillRect(0, 0, 20, 20);
-        patternCtx.strokeStyle = '#1a1a1a';
-        patternCtx.lineWidth = 1;
-        patternCtx.beginPath();
-        patternCtx.moveTo(0, 0);
-        patternCtx.lineTo(20, 0);
-        patternCtx.moveTo(0, 0);
-        patternCtx.lineTo(0, 20);
-        patternCtx.stroke();
+        
+        // Dark background
+        patternCtx.fillStyle = '#050505';
+        patternCtx.fillRect(0, 0, 64, 64);
+        
+        // Subtle noise texture
+        for(let i = 0; i < 100; i++) {
+            patternCtx.fillStyle = Math.random() > 0.5 ? '#0a0a0a' : '#000000';
+            patternCtx.fillRect(
+                Math.floor(Math.random() * 64), 
+                Math.floor(Math.random() * 64), 
+                2, 2
+            );
+        }
+        
         return this.ctx.createPattern(patternCanvas, 'repeat');
     }
     
@@ -1103,6 +1109,20 @@ class Game {
             this.ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
+        
+        // Draw subtle retro grid background
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        for (let x = 0; x <= this.canvas.width; x += TILE_SIZE) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+        }
+        for (let y = 0; y <= this.canvas.height; y += TILE_SIZE) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+        }
+        this.ctx.stroke();
         
         if (this.grid && this.grid.length > 0) {
             for (let y = 0; y < this.grid.length; y++) {
