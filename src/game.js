@@ -86,23 +86,23 @@ class Game {
     
     createBackgroundPattern() {
         const patternCanvas = document.createElement('canvas');
-        patternCanvas.width = 64;
-        patternCanvas.height = 64;
+        patternCanvas.width = 32;
+        patternCanvas.height = 32;
         const patternCtx = patternCanvas.getContext('2d');
         
-        // Dark background
-        patternCtx.fillStyle = '#050505';
-        patternCtx.fillRect(0, 0, 64, 64);
+        // Deep space background
+        patternCtx.fillStyle = '#0a0a12';
+        patternCtx.fillRect(0, 0, 32, 32);
         
-        // Subtle noise texture
-        for(let i = 0; i < 100; i++) {
-            patternCtx.fillStyle = Math.random() > 0.5 ? '#0a0a0a' : '#000000';
-            patternCtx.fillRect(
-                Math.floor(Math.random() * 64), 
-                Math.floor(Math.random() * 64), 
-                2, 2
-            );
-        }
+        // Subtle grid pattern
+        patternCtx.strokeStyle = 'rgba(100, 100, 150, 0.05)';
+        patternCtx.lineWidth = 1;
+        patternCtx.beginPath();
+        patternCtx.moveTo(0, 16);
+        patternCtx.lineTo(32, 16);
+        patternCtx.moveTo(16, 0);
+        patternCtx.lineTo(16, 32);
+        patternCtx.stroke();
         
         return this.ctx.createPattern(patternCanvas, 'repeat');
     }
@@ -570,30 +570,15 @@ class Game {
             }
         }
         
-        // Find best target using A* pathfinding
-        let target = this.findBestTarget(px, py);
-        
-        // If no target or mildly stuck, explore random unexplored areas
-        if (!target || this.aiMemory.stuckCounter >= 1) {
-            target = this.findUnexploredTarget(px, py);
-            if (!target) {
-                // No unexplored areas, clear memory and try again
-                this.aiMemory.exploredCells.clear();
-                this.aiMemory.stuckCounter = 0;
-            }
-        }
-        
-        // Get next move using pathfinding
-        if (target) {
-            const path = this.findPathAStar(px, py, target.x, target.y);
-            if (path && path.length > 1) {
-                const nextPos = path[1]; // path[0] is current position
-                return this.getDirectionToPosition(px, py, nextPos.x, nextPos.y);
-            }
+        // Use BFS to find the nearest reachable target (Diamond, Exit, or Dirt)
+        // This is much more robust for mazes than A* to a specific target
+        const nextDir = this.findNearestTargetBFS(px, py);
+        if (nextDir) {
+            return nextDir;
         }
         
         // Fallback: evaluate all valid moves with scoring
-        const validMoves = this.evaluateAllMoves(px, py, target);
+        const validMoves = this.evaluateAllMoves(px, py, null);
         
         if (validMoves.length === 0) {
             // Last resort: try any valid direction
@@ -618,126 +603,64 @@ class Game {
         return validMoves[0].dir;
     }
     
-    findBestTarget(px, py) {
-        let bestTarget = null;
-        let bestScore = -Infinity;
+    findNearestTargetBFS(px, py) {
+        // BFS to find nearest reachable diamond, exit (if open), or dirt
+        // This guarantees finding a path if one exists, unlike A* with a heuristic
+        const queue = [{ x: px, y: py, path: [] }];
+        const visited = new Set([`${px},${py}`]);
+        const maxNodes = 1500; // Allow searching almost the entire grid (40x22 = 880 cells)
+        let nodesProcessed = 0;
         
-        // Safety check
-        if (!this.grid || !this.physics) {
-            return null;
-        }
+        let nearestDirtPath = null;
         
-        // Scan for diamonds
-        for (let y = 0; y < GRID_HEIGHT; y++) {
-            for (let x = 0; x < GRID_WIDTH; x++) {
-                if (this.grid[y] && this.grid[y][x] === ELEMENT_TYPES.DIAMOND) {
-                    const dist = Math.abs(x - px) + Math.abs(y - py);
-                    const score = 100 / (dist + 1); // Closer diamonds score higher
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestTarget = { x, y, type: 'diamond' };
-                    }
-                }
-            }
-        }
-        
-        // Consider exit if open and enough diamonds collected
-        if (this.exitOpen && this.exitPosition) {
-            const dist = Math.abs(this.exitPosition.x - px) + Math.abs(this.exitPosition.y - py);
-            const score = 200 / (dist + 1); // Exit scores very high when open
-            if (score > bestScore) {
-                bestTarget = { x: this.exitPosition.x, y: this.exitPosition.y, type: 'exit' };
-            }
-        }
-        
-        return bestTarget;
-    }
-    
-    findUnexploredTarget(px, py) {
-        // Find nearest unexplored cell with dirt
-        if (!this.grid || !Array.isArray(this.grid)) return null;
-        
-        let bestTarget = null;
-        let minDist = Infinity;
-        
-        for (let y = 0; y < GRID_HEIGHT; y++) {
-            if (!this.grid[y]) continue;
-            for (let x = 0; x < GRID_WIDTH; x++) {
-                const posKey = `${x},${y}`;
-                if (!this.aiMemory.exploredCells.has(posKey) && 
-                    this.grid[y][x] === ELEMENT_TYPES.DIRT) {
-                    const dist = Math.abs(x - px) + Math.abs(y - py);
-                    if (dist < minDist && dist > 0) {
-                        minDist = dist;
-                        bestTarget = { x, y, type: 'explore' };
-                    }
-                }
-            }
-        }
-        
-        return bestTarget;
-    }
-    
-    findPathAStar(startX, startY, goalX, goalY) {
-        const openSet = [{ x: startX, y: startY, g: 0, h: 0, f: 0, parent: null }];
-        const closedSet = new Set();
-        
-        while (openSet.length > 0) {
-            // Get node with lowest f score
-            openSet.sort((a, b) => a.f - b.f);
-            const current = openSet.shift();
+        while (queue.length > 0) {
+            const current = queue.shift();
+            nodesProcessed++;
             
-            // Reached goal
-            if (current.x === goalX && current.y === goalY) {
-                return this.reconstructPath(current);
+            if (nodesProcessed > maxNodes) break;
+            
+            const cell = this.grid[current.y][current.x];
+            
+            // Found a primary target?
+            if (cell === ELEMENT_TYPES.DIAMOND) {
+                return current.path[0]; // Return first move direction
             }
             
-            closedSet.add(`${current.x},${current.y}`);
+            if (this.exitOpen && cell === ELEMENT_TYPES.EXIT) {
+                return current.path[0];
+            }
             
-            // Check all neighbors
-            const neighbors = [
-                { x: current.x + 1, y: current.y },
-                { x: current.x - 1, y: current.y },
-                { x: current.x, y: current.y + 1 },
-                { x: current.x, y: current.y - 1 }
-            ];
+            // Track nearest dirt as fallback (exploration)
+            if (!nearestDirtPath && cell === ELEMENT_TYPES.DIRT) {
+                nearestDirtPath = current.path;
+            }
             
-            for (const neighbor of neighbors) {
-                const key = `${neighbor.x},${neighbor.y}`;
+            // Explore neighbors
+            // Shuffle directions slightly to avoid bias in open areas
+            const dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+            if (Math.random() > 0.5) dirs.reverse();
+            
+            for (const dir of dirs) {
+                const nextPos = this.getNewPosition(current.x, current.y, dir);
+                const key = `${nextPos.x},${nextPos.y}`;
                 
-                if (closedSet.has(key) || !this.isValidAIMove(neighbor.x, neighbor.y)) {
-                    continue;
-                }
-                
-                const g = current.g + 1;
-                const h = Math.abs(neighbor.x - goalX) + Math.abs(neighbor.y - goalY);
-                const f = g + h;
-                
-                const existing = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
-                if (!existing || g < existing.g) {
-                    if (existing) {
-                        openSet.splice(openSet.indexOf(existing), 1);
-                    }
-                    openSet.push({ ...neighbor, g, h, f, parent: current });
+                if (!visited.has(key) && this.isValidAIMove(nextPos.x, nextPos.y)) {
+                    visited.add(key);
+                    const newPath = [...current.path, dir];
+                    queue.push({ x: nextPos.x, y: nextPos.y, path: newPath });
                 }
             }
-            
-            // Prevent infinite loops
-            if (closedSet.size > 100) break;
         }
         
-        return null; // No path found
-    }
-    
-    reconstructPath(node) {
-        const path = [];
-        let current = node;
-        while (current) {
-            path.unshift({ x: current.x, y: current.y });
-            current = current.parent;
+        // If no diamond/exit found, go to nearest dirt
+        if (nearestDirtPath && nearestDirtPath.length > 0) {
+            return nearestDirtPath[0];
         }
-        return path;
+        
+        return null;
     }
+
+    // Deprecated methods removed: findBestTarget, findUnexploredTarget, findPathAStar, reconstructPath
     
     evaluateAllMoves(px, py, target) {
         const validMoves = [];
@@ -1094,35 +1017,22 @@ class Game {
     }
     
     render() {
-        const shakeX = this.screenShake > 0 ? (Math.random() - 0.5) * 5 : 0;
-        const shakeY = this.screenShake > 0 ? (Math.random() - 0.5) * 5 : 0;
+        const shakeX = this.screenShake > 0 ? (Math.random() - 0.5) * 4 : 0;
+        const shakeY = this.screenShake > 0 ? (Math.random() - 0.5) * 4 : 0;
         
         this.ctx.save();
         this.ctx.translate(shakeX, shakeY);
         
+        // Fill background
         this.ctx.fillStyle = this.backgroundPattern;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Apply screen flash effect
         if (this.screenFlash > 0) {
-            const flashAlpha = Math.min(0.4, this.screenFlash / 50);
-            this.ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+            const flashAlpha = Math.min(0.3, this.screenFlash / 60);
+            this.ctx.fillStyle = `rgba(255, 255, 200, ${flashAlpha})`;
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
-        
-        // Draw subtle retro grid background
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        for (let x = 0; x <= this.canvas.width; x += TILE_SIZE) {
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.canvas.height);
-        }
-        for (let y = 0; y <= this.canvas.height; y += TILE_SIZE) {
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.canvas.width, y);
-        }
-        this.ctx.stroke();
         
         if (this.grid && this.grid.length > 0) {
             for (let y = 0; y < this.grid.length; y++) {
@@ -1206,20 +1116,35 @@ class Game {
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
         
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(centerX - 200, centerY - 80, 400, 160);
+        // Semi-transparent background with blur effect
+        this.ctx.fillStyle = 'rgba(10, 10, 20, 0.85)';
+        this.ctx.beginPath();
+        this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
+        this.ctx.fill();
+        
+        // Border glow
         this.ctx.strokeStyle = color;
         this.ctx.lineWidth = 3;
-        this.ctx.strokeRect(centerX - 200, centerY - 80, 400, 160);
+        this.ctx.shadowColor = color;
+        this.ctx.shadowBlur = 15;
+        this.ctx.beginPath();
+        this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
         
+        // Title with glow
         this.ctx.fillStyle = color;
-        this.ctx.font = 'bold 32px Arial';
+        this.ctx.font = 'bold 28px "Press Start 2P", monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(title, centerX, centerY - 30);
+        this.ctx.shadowColor = color;
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillText(title, centerX, centerY - 20);
+        this.ctx.shadowBlur = 0;
         
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = '18px Arial';
+        // Subtitle
+        this.ctx.fillStyle = '#cccccc';
+        this.ctx.font = '14px "Press Start 2P", monospace';
         this.ctx.fillText(subtitle, centerX, centerY + 30);
     }
     
