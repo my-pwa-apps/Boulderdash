@@ -503,14 +503,22 @@ class Game {
             }
             this.aiMemory.totalStuckCount++;
             
-            if (this.aiMemory.totalStuckCount > 10) {
+            if (this.aiMemory.totalStuckCount > 15) {
                 console.log('AI permanently stuck - ending demo mode');
                 this.stopDemo();
                 return null;
             }
             
-            console.log(`AI stuck (${this.aiMemory.totalStuckCount}/10) - forcing smart exploration`);
+            console.log(`AI stuck (${this.aiMemory.totalStuckCount}/15) - forcing smart exploration`);
             this.aiMemory.stuckCounter = 0;
+            
+            // Try risky BFS first - allows moves that might be dangerous but gets us unstuck
+            const riskyDir = this.findNearestTargetBFS(px, py, true);
+            if (riskyDir) {
+                this.aiMemory.exploredCells.clear();
+                this.aiMemory.lastPositions = []; // Clear position history to reset
+                return riskyDir;
+            }
             
             // SMART ESCAPE: Evaluate all moves with aggressive scoring toward unexplored areas
             const dirs = ['RIGHT', 'LEFT', 'DOWN', 'UP'];
@@ -519,7 +527,8 @@ class Game {
             for (const dir of dirs) {
                 const testMove = this.getNewPosition(px, py, dir);
                 const testKey = `${testMove.x},${testMove.y}`;
-                if (!this.isValidAIMove(testMove.x, testMove.y)) continue;
+                // Allow risky moves when stuck
+                if (!this.isValidAIMove(testMove.x, testMove.y, true)) continue;
                 
                 let score = 0;
                 const cell = this.grid[testMove.y][testMove.x];
@@ -533,13 +542,16 @@ class Game {
                     score += turnsAgo * 50; // More points for longer ago
                 }
                 
+                // Big bonus for diamonds
+                if (cell === ELEMENT_TYPES.DIAMOND) score += 2000;
+                
                 // Bonus for dirt (means unexplored path)
-                if (cell === ELEMENT_TYPES.DIRT) score += 200;
+                if (cell === ELEMENT_TYPES.DIRT) score += 300;
                 
                 // Bonus for moving away from oscillation zone
                 const recentPositions = this.aiMemory.lastPositions.slice(-6);
                 const isInOscillationZone = recentPositions.includes(testKey);
-                if (!isInOscillationZone) score += 300;
+                if (!isInOscillationZone) score += 400;
                 
                 // Penalize returning to exact previous position
                 if (this.aiMemory.lastPositions.length > 0 && 
@@ -554,11 +566,10 @@ class Game {
                 // Sort by highest score (best escape route)
                 validMoves.sort((a, b) => b.score - a.score);
                 
-                // Add some randomness to top choices to avoid predictable patterns
-                const topChoices = validMoves.slice(0, Math.min(2, validMoves.length));
-                const chosen = topChoices[Math.floor(Math.random() * topChoices.length)];
+                // Pick the best choice
+                const chosen = validMoves[0];
                 
-                // Clear explored cells near oscillation to allow revisit from different angle
+                // Clear explored cells to allow revisit from different angle
                 this.aiMemory.exploredCells.clear();
                 
                 return chosen.dir;
@@ -603,15 +614,29 @@ class Game {
         return validMoves[0].dir;
     }
     
-    findNearestTargetBFS(px, py) {
+    findNearestTargetBFS(px, py, allowRisky = false) {
         // BFS to find nearest reachable diamond, exit (if open), or dirt
-        // This guarantees finding a path if one exists, unlike A* with a heuristic
-        const queue = [{ x: px, y: py, path: [] }];
+        // This guarantees finding a path if one exists
         const visited = new Set([`${px},${py}`]);
-        const maxNodes = 1500; // Allow searching almost the entire grid (40x22 = 880 cells)
+        const maxNodes = 2000; // Allow searching the entire grid multiple times if needed
         let nodesProcessed = 0;
         
+        // Initialize queue with immediate neighbors
+        const queue = [];
+        const dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+        
+        // Start by adding all valid neighbors
+        for (const dir of dirs) {
+            const nextPos = this.getNewPosition(px, py, dir);
+            const key = `${nextPos.x},${nextPos.y}`;
+            if (this.isValidAIMove(nextPos.x, nextPos.y, allowRisky)) {
+                visited.add(key);
+                queue.push({ x: nextPos.x, y: nextPos.y, path: [dir], firstDir: dir });
+            }
+        }
+        
         let nearestDirtPath = null;
+        let nearestDirtDist = Infinity;
         
         while (queue.length > 0) {
             const current = queue.shift();
@@ -621,40 +646,48 @@ class Game {
             
             const cell = this.grid[current.y][current.x];
             
-            // Found a primary target?
+            // Found a diamond - immediate return
             if (cell === ELEMENT_TYPES.DIAMOND) {
-                return current.path[0]; // Return first move direction
+                return current.firstDir;
             }
             
+            // Found the exit when it's open - immediate return
             if (this.exitOpen && cell === ELEMENT_TYPES.EXIT) {
-                return current.path[0];
+                return current.firstDir;
             }
             
-            // Track nearest dirt as fallback (exploration)
-            if (!nearestDirtPath && cell === ELEMENT_TYPES.DIRT) {
-                nearestDirtPath = current.path;
+            // Track nearest dirt as fallback (for exploration)
+            if (cell === ELEMENT_TYPES.DIRT && current.path.length < nearestDirtDist) {
+                nearestDirtPath = current.firstDir;
+                nearestDirtDist = current.path.length;
             }
             
-            // Explore neighbors
-            // Shuffle directions slightly to avoid bias in open areas
-            const dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
-            if (Math.random() > 0.5) dirs.reverse();
+            // Explore neighbors in shuffled order to avoid directional bias
+            const shuffledDirs = [...dirs];
+            for (let i = shuffledDirs.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledDirs[i], shuffledDirs[j]] = [shuffledDirs[j], shuffledDirs[i]];
+            }
             
-            for (const dir of dirs) {
+            for (const dir of shuffledDirs) {
                 const nextPos = this.getNewPosition(current.x, current.y, dir);
                 const key = `${nextPos.x},${nextPos.y}`;
                 
-                if (!visited.has(key) && this.isValidAIMove(nextPos.x, nextPos.y)) {
+                if (!visited.has(key) && this.isValidAIMove(nextPos.x, nextPos.y, allowRisky)) {
                     visited.add(key);
-                    const newPath = [...current.path, dir];
-                    queue.push({ x: nextPos.x, y: nextPos.y, path: newPath });
+                    queue.push({ 
+                        x: nextPos.x, 
+                        y: nextPos.y, 
+                        path: [...current.path, dir],
+                        firstDir: current.firstDir  // Keep track of original direction
+                    });
                 }
             }
         }
         
-        // If no diamond/exit found, go to nearest dirt
-        if (nearestDirtPath && nearestDirtPath.length > 0) {
-            return nearestDirtPath[0];
+        // If no diamond/exit found, go to nearest dirt for exploration
+        if (nearestDirtPath) {
+            return nearestDirtPath;
         }
         
         return null;
@@ -739,37 +772,29 @@ class Game {
         }
         
         if (!allowRisky) {
-            // Check for boulders directly above
-            if (y > 0) {
+            // Check for boulders directly above - but ONLY if moving into empty space
+            // Dirt is safe because digging it means the boulder won't fall immediately
+            if (y > 0 && cell === ELEMENT_TYPES.EMPTY) {
                 const above = this.grid[y - 1][x];
                 if (above === ELEMENT_TYPES.BOULDER) {
-                    // Check if we're moving under a suspended boulder
-                    const cellBelow = y < GRID_HEIGHT - 1 ? this.grid[y + 1][x] : null;
-                    if (cell === ELEMENT_TYPES.EMPTY || cell === ELEMENT_TYPES.DIRT) {
-                        return false; // Dangerous - could be crushed
-                    }
+                    return false; // Dangerous - could be crushed
                 }
             }
             
-            // Check diagonally for boulders that might roll
-            if (y > 0) {
+            // Check diagonally for boulders that might roll - only for empty cells
+            if (y > 0 && cell === ELEMENT_TYPES.EMPTY) {
                 // Check left diagonal
                 if (x > 0 && this.grid[y - 1][x - 1] === ELEMENT_TYPES.BOULDER) {
                     const belowBoulder = this.grid[y][x - 1];
-                    const targetLeft = this.grid[y][x - 1];
                     if (belowBoulder === ELEMENT_TYPES.BOULDER || belowBoulder === ELEMENT_TYPES.WALL) {
-                        if (cell === ELEMENT_TYPES.EMPTY) {
-                            return false; // Boulder might roll here
-                        }
+                        return false; // Boulder might roll here
                     }
                 }
                 // Check right diagonal
                 if (x < GRID_WIDTH - 1 && this.grid[y - 1][x + 1] === ELEMENT_TYPES.BOULDER) {
                     const belowBoulder = this.grid[y][x + 1];
                     if (belowBoulder === ELEMENT_TYPES.BOULDER || belowBoulder === ELEMENT_TYPES.WALL) {
-                        if (cell === ELEMENT_TYPES.EMPTY) {
-                            return false; // Boulder might roll here
-                        }
+                        return false; // Boulder might roll here
                     }
                 }
             }
