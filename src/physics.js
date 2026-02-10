@@ -229,6 +229,7 @@ export class GamePhysics {
                 break;
 
             case ELEMENT_TYPES.ENEMY:
+            case ELEMENT_TYPES.BUTTERFLY:
                 // Player dies on contact with enemy
                 result.crushed = true;
                 break;
@@ -371,9 +372,10 @@ export class GamePhysics {
     
     /**
      * Classic Boulder Dash wall-following enemy movement.
-     * Fireflies follow the left wall: try left, try straight, try right, reverse.
+     * Fireflies follow the left wall (turn left first).
+     * Butterflies follow the right wall (turn right first).
      * Enemies can only move through EMPTY spaces or onto the PLAYER.
-     * @param {Array<Object>} enemies - Array of enemy objects {x, y, direction}
+     * @param {Array<Object>} enemies - Array of enemy objects {x, y, direction, type}
      * @param {number} playerX - Player's x coordinate
      * @param {number} playerY - Player's y coordinate
      * @returns {Array<Object>} - Updated enemy positions with directions
@@ -381,21 +383,28 @@ export class GamePhysics {
     moveEnemies(enemies, playerX, playerY) {
         const updatedEnemies = [];
         
-        // Direction turn tables for left-wall following
+        // Direction turn tables
         const turnLeft = { UP: 'LEFT', LEFT: 'DOWN', DOWN: 'RIGHT', RIGHT: 'UP' };
         const turnRight = { UP: 'RIGHT', RIGHT: 'DOWN', DOWN: 'LEFT', LEFT: 'UP' };
         const reverse = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
         const dirDelta = { UP: { dx: 0, dy: -1 }, DOWN: { dx: 0, dy: 1 }, LEFT: { dx: -1, dy: 0 }, RIGHT: { dx: 1, dy: 0 } };
         
         for (const enemy of enemies) {
-            // Ensure enemy has a direction (backwards compat)
             if (!enemy.direction) enemy.direction = 'DOWN';
+            const isButterfly = enemy.type === ELEMENT_TYPES.BUTTERFLY;
+            const enemyType = isButterfly ? ELEMENT_TYPES.BUTTERFLY : ELEMENT_TYPES.ENEMY;
             
             let moved = false;
             let newDir = enemy.direction;
             
-            // Classic wall-following: try left, straight, right, reverse
-            const tryOrder = [
+            // Fireflies: try left, straight, right, reverse (left-wall following)
+            // Butterflies: try right, straight, left, reverse (right-wall following)
+            const tryOrder = isButterfly ? [
+                turnRight[enemy.direction],
+                enemy.direction,
+                turnLeft[enemy.direction],
+                reverse[enemy.direction]
+            ] : [
                 turnLeft[enemy.direction],
                 enemy.direction,
                 turnRight[enemy.direction],
@@ -414,11 +423,11 @@ export class GamePhysics {
                     newDir = dir;
                     
                     if (this.grid[newY][newX] === ELEMENT_TYPES.PLAYER) {
-                        updatedEnemies.push({ x: newX, y: newY, direction: newDir });
+                        updatedEnemies.push({ x: newX, y: newY, direction: newDir, type: enemyType });
                     } else {
-                        this.grid[newY][newX] = ELEMENT_TYPES.ENEMY;
+                        this.grid[newY][newX] = enemyType;
                         this.grid[enemy.y][enemy.x] = ELEMENT_TYPES.EMPTY;
-                        updatedEnemies.push({ x: newX, y: newY, direction: newDir });
+                        updatedEnemies.push({ x: newX, y: newY, direction: newDir, type: enemyType });
                     }
                     
                     moved = true;
@@ -427,7 +436,7 @@ export class GamePhysics {
             }
             
             if (!moved) {
-                updatedEnemies.push({ x: enemy.x, y: enemy.y, direction: enemy.direction });
+                updatedEnemies.push({ x: enemy.x, y: enemy.y, direction: enemy.direction, type: enemyType });
             }
         }
         
@@ -446,8 +455,7 @@ export class GamePhysics {
     }
     
     /**
-     * Check if a boulder or diamond would crush an enemy.
-     * In classic Boulder Dash, crushed enemies explode into diamonds (3x3 area).
+     * Check if a boulder or diamond would crush an enemy (firefly or butterfly).
      * @param {Array<Object>} enemies - Array of enemy positions
      * @returns {Array<number>} - Indices of enemies that are crushed
      */
@@ -467,8 +475,8 @@ export class GamePhysics {
             }
             
             // Also check if something landed ON the enemy position
-            if (this.grid[enemy.y][enemy.x] === ELEMENT_TYPES.BOULDER ||
-                this.grid[enemy.y][enemy.x] === ELEMENT_TYPES.DIAMOND) {
+            const cellAtEnemy = this.grid[enemy.y][enemy.x];
+            if (cellAtEnemy === ELEMENT_TYPES.BOULDER || cellAtEnemy === ELEMENT_TYPES.DIAMOND) {
                 if (!crushedIndices.includes(i)) {
                     crushedIndices.push(i);
                 }
@@ -479,12 +487,12 @@ export class GamePhysics {
     }
     
     /**
-     * Explode an enemy into diamonds in a 3x3 area (classic Boulder Dash behavior).
+     * Explode a butterfly into diamonds in a 3x3 area (classic Boulder Dash behavior).
      * @param {number} x - Enemy x position
      * @param {number} y - Enemy y position
      * @returns {number} - Number of diamonds created
      */
-    explodeEnemy(x, y) {
+    explodeButterfly(x, y) {
         let diamondsCreated = 0;
         
         for (let dy = -1; dy <= 1; dy++) {
@@ -500,7 +508,8 @@ export class GamePhysics {
                 if (cell === ELEMENT_TYPES.DIRT || 
                     cell === ELEMENT_TYPES.EMPTY || 
                     cell === ELEMENT_TYPES.BOULDER ||
-                    cell === ELEMENT_TYPES.ENEMY) {
+                    cell === ELEMENT_TYPES.ENEMY ||
+                    cell === ELEMENT_TYPES.BUTTERFLY) {
                     this.grid[ny][nx] = ELEMENT_TYPES.DIAMOND;
                     diamondsCreated++;
                 }
@@ -508,6 +517,32 @@ export class GamePhysics {
         }
         
         return diamondsCreated;
+    }
+    
+    /**
+     * Explode a firefly into empty space in a 3x3 area (classic Boulder Dash behavior).
+     * @param {number} x - Enemy x position
+     * @param {number} y - Enemy y position
+     */
+    explodeFirefly(x, y) {
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const nx = x + dx;
+                const ny = y + dy;
+                
+                if (!isInBounds(nx, ny, this.width, this.height)) continue;
+                
+                const cell = this.grid[ny][nx];
+                // Replace dirt, empty, boulders, diamonds, and the enemy itself with empty space
+                // Don't replace walls, exit, or player
+                if (cell !== ELEMENT_TYPES.WALL && 
+                    cell !== ELEMENT_TYPES.EXIT && 
+                    cell !== ELEMENT_TYPES.PLAYER &&
+                    cell !== ELEMENT_TYPES.MAGIC_WALL) {
+                    this.grid[ny][nx] = ELEMENT_TYPES.EMPTY;
+                }
+            }
+        }
     }
     
     /**

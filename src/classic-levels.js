@@ -6,15 +6,17 @@ import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js';
  * 
  * Legend:
  *   W = Wall  P = Player  E = Exit  * = Diamond  # = Boulder
- *   F = Firefly (enemy)  M = Magic Wall  . = Dirt  (space) = Empty
+ *   F = Firefly (enemy)  B = Butterfly (enemy, explodes to diamonds)
+ *   M = Magic Wall  . = Dirt  (space) = Empty
  */
 export const CLASSIC_CAVES = [
     {
         // Cave A: "Intro" - Tutorial level
         name: "INTRO",
         timeLimit: 150,
-        diamondsRequired: 10,
-        diamondValue: 5,
+        diamondsRequired: 12,
+        diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP..*........*.........*..............EW',
@@ -46,7 +48,8 @@ export const CLASSIC_CAVES = [
         name: "ROOMS",
         timeLimit: 150,
         diamondsRequired: 12,
-        diamondValue: 10,
+        diamondValue: 20,
+        extraDiamondValue: 30,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP......*......*......*...............EW',
@@ -76,9 +79,10 @@ export const CLASSIC_CAVES = [
     {
         // Cave C: "Maze"
         name: "MAZE",
-        timeLimit: 180,
-        diamondsRequired: 15,
-        diamondValue: 12,
+        timeLimit: 120,
+        diamondsRequired: 24,
+        diamondValue: 5,
+        extraDiamondValue: 10,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP*...W.......W.......W.......W......EW',
@@ -106,17 +110,18 @@ export const CLASSIC_CAVES = [
         enemies: 2
     },
     {
-        // Cave D: "Butterflies"
+        // Cave D: "Butterflies" - kill butterflies to create diamonds
         name: "BUTTERFLIES",
         timeLimit: 120,
-        diamondsRequired: 10,
-        diamondValue: 15,
+        diamondsRequired: 12,
+        diamondValue: 20,
+        extraDiamondValue: 30,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP..*.................................EW',
             'W.....WWW.W.......WWW.W.......WWW.W...W',
             'W.....W.*.W.......W.*.W.......W.*.W...W',
-            'W.....W.F.W.......W.F.W.......W.F.W...W',
+            'W.....W.B.W.......W.B.W.......W.B.W...W',
             'W.....W...W.......W...W.......W...W...W',
             'W.....WWWWW.......WWWWW.......WWWWW...W',
             'W...*.....*.....*.....*...............W',
@@ -125,7 +130,7 @@ export const CLASSIC_CAVES = [
             'W..*...............................*..W',
             'W.....WWWWW.......WWWWW.......WWWWW...W',
             'W.....W...W.......W...W.......W...W...W',
-            'W.....W.F.W.......W.F.W.......W.F.W...W',
+            'W.....W.B.W.......W.B.W.......W.B.W...W',
             'W.....W.*.W.......W.*.W.......W.*.W.*.W',
             'W.....W.W.W.......W.W.W.......W.W.W...W',
             'W......................................W',
@@ -138,11 +143,12 @@ export const CLASSIC_CAVES = [
         enemies: 6
     },
     {
-        // Cave E: "Guards"
+        // Cave E: "Guards" - fireflies patrol corridors
         name: "GUARDS",
         timeLimit: 150,
-        diamondsRequired: 18,
-        diamondValue: 8,
+        diamondsRequired: 15,
+        diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP..*.....*.....*.....*.....*........EW',
@@ -173,8 +179,9 @@ export const CLASSIC_CAVES = [
         // Cave F: "Firefly Dens"
         name: "FIREFLY DENS",
         timeLimit: 150,
-        diamondsRequired: 20,
+        diamondsRequired: 15,
         diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP*..*...*..*...*..*..................EW',
@@ -205,8 +212,9 @@ export const CLASSIC_CAVES = [
         // Cave G: "Amoeba"
         name: "AMOEBA",
         timeLimit: 200,
-        diamondsRequired: 25,
+        diamondsRequired: 20,
         diamondValue: 5,
+        extraDiamondValue: 10,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP*************************...........EW',
@@ -236,9 +244,10 @@ export const CLASSIC_CAVES = [
     {
         // Cave H: "Enchanted Wall" - Features magic walls
         name: "ENCHANTED WALL",
-        timeLimit: 180,
-        diamondsRequired: 22,
-        diamondValue: 12,
+        timeLimit: 160,
+        diamondsRequired: 12,
+        diamondValue: 20,
+        extraDiamondValue: 30,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP...#####....#####....#####..........EW',
@@ -270,7 +279,8 @@ export const CLASSIC_CAVES = [
         name: "GREED",
         timeLimit: 100,
         diamondsRequired: 30,
-        diamondValue: 6,
+        diamondValue: 5,
+        extraDiamondValue: 10,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP*****************************........EW',
@@ -300,9 +310,10 @@ export const CLASSIC_CAVES = [
     {
         // Cave J: "Tracks"
         name: "TRACKS",
-        timeLimit: 180,
+        timeLimit: 150,
         diamondsRequired: 16,
         diamondValue: 15,
+        extraDiamondValue: 20,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.....EW',
@@ -333,8 +344,9 @@ export const CLASSIC_CAVES = [
         // Cave K: "Crowd"
         name: "CROWD",
         timeLimit: 150,
-        diamondsRequired: 24,
+        diamondsRequired: 10,
         diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP************************............EW',
@@ -366,7 +378,8 @@ export const CLASSIC_CAVES = [
         name: "WALLS",
         timeLimit: 200,
         diamondsRequired: 20,
-        diamondValue: 12,
+        diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP********************................EW',
@@ -394,11 +407,12 @@ export const CLASSIC_CAVES = [
         enemies: 4
     },
     {
-        // Cave M: "Apocalypse"
+        // Cave M: "Apocalypse" - butterflies must be killed for diamonds
         name: "APOCALYPSE",
         timeLimit: 120,
-        diamondsRequired: 28,
-        diamondValue: 8,
+        diamondsRequired: 50,
+        diamondValue: 5,
+        extraDiamondValue: 10,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP****************************........EW',
@@ -408,7 +422,7 @@ export const CLASSIC_CAVES = [
             'W..#################################..W',
             'W......................................W',
             'W......................................W',
-            'WF.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F.FW',
+            'WB.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.BW',
             'W......................................W',
             'W......................................W',
             'W..#################################..W',
@@ -426,11 +440,12 @@ export const CLASSIC_CAVES = [
         enemies: 18
     },
     {
-        // Cave N: "Zigzag"
+        // Cave N: "Zigzag" - mixed fireflies and butterflies
         name: "ZIGZAG",
         timeLimit: 180,
         diamondsRequired: 18,
-        diamondValue: 14,
+        diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.EW',
@@ -461,8 +476,9 @@ export const CLASSIC_CAVES = [
         // Cave O: "Funnel"
         name: "FUNNEL",
         timeLimit: 150,
-        diamondsRequired: 26,
-        diamondValue: 9,
+        diamondsRequired: 20,
+        diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP**************************..........EW',
@@ -493,8 +509,9 @@ export const CLASSIC_CAVES = [
         // Cave P: "Vertigo"
         name: "VERTIGO",
         timeLimit: 200,
-        diamondsRequired: 30,
+        diamondsRequired: 24,
         diamondValue: 10,
+        extraDiamondValue: 15,
         pattern: [
             'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
             'WP*****************************........EW',
@@ -576,7 +593,11 @@ export function parsePattern(pattern, width, height) {
                     break;
                 case 'F':
                     cell = ELEMENT_TYPES.ENEMY;
-                    enemies.push({ x, y, direction: 'DOWN' });
+                    enemies.push({ x, y, direction: 'DOWN', type: ELEMENT_TYPES.ENEMY });
+                    break;
+                case 'B':
+                    cell = ELEMENT_TYPES.BUTTERFLY;
+                    enemies.push({ x, y, direction: 'DOWN', type: ELEMENT_TYPES.BUTTERFLY });
                     break;
                 case 'M':
                     cell = ELEMENT_TYPES.MAGIC_WALL;

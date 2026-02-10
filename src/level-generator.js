@@ -1,4 +1,4 @@
-import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js';
+import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT, GAME_SETTINGS } from './constants.js';
 import { getRandomInt, createGrid, isInBounds, shuffleArray } from './utils.js';
 import { CLASSIC_CAVES, parsePattern } from './classic-levels.js';
 
@@ -37,7 +37,9 @@ function generateClassicLevel(level) {
         requiredDiamonds: cave.diamondsRequired,
         levelNumber: level,
         levelName: cave.name,
-        timeLimit: cave.timeLimit
+        timeLimit: cave.timeLimit,
+        diamondValue: cave.diamondValue || GAME_SETTINGS.DIAMOND_VALUE,
+        extraDiamondValue: cave.extraDiamondValue || cave.diamondValue || GAME_SETTINGS.DIAMOND_VALUE
     };
 }
 
@@ -87,10 +89,11 @@ function generateProceduralLevel(level) {
     // Add more enemies with direction for wall-following
     const allEnemies = [...parsed.enemies];
     for (let i = parsed.enemies.length; i < enemyCount; i++) {
-        const enemyPos = placeElement(grid, ELEMENT_TYPES.ENEMY, 
+        const enemyType = Math.random() < 0.3 ? ELEMENT_TYPES.BUTTERFLY : ELEMENT_TYPES.ENEMY;
+        const enemyPos = placeElement(grid, enemyType, 
             8, 8, GRID_WIDTH - 3, GRID_HEIGHT - 3);
         if (enemyPos) {
-            allEnemies.push({ ...enemyPos, direction: 'DOWN' });
+            allEnemies.push({ ...enemyPos, direction: 'DOWN', type: enemyType });
         }
     }
     
@@ -109,7 +112,9 @@ function generateProceduralLevel(level) {
         requiredDiamonds,
         levelNumber: level,
         levelName: `${template.name} +${level - 16}`,
-        timeLimit
+        timeLimit,
+        diamondValue: template.diamondValue || GAME_SETTINGS.DIAMOND_VALUE,
+        extraDiamondValue: template.extraDiamondValue || template.diamondValue || GAME_SETTINGS.DIAMOND_VALUE
     };
 }
 

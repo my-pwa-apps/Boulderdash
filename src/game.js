@@ -335,6 +335,8 @@ class Game {
         this.levelName = levelData.levelName || `Cave ${String.fromCharCode(64 + levelNumber)}`;
         this.diamondsCollected = 0;
         this.exitOpen = false;
+        this.diamondValue = levelData.diamondValue || GAME_SETTINGS.DIAMOND_VALUE;
+        this.extraDiamondValue = levelData.extraDiamondValue || this.diamondValue;
         this.particles = [];
         this.explosions = [];
         this.playerAnimationFrame = 0;
@@ -894,7 +896,7 @@ class Game {
             
             if (result.collected) {
                 this.diamondsCollected++;
-                this.score += GAME_SETTINGS.DIAMOND_VALUE;
+                this.score += this.exitOpen ? this.extraDiamondValue : this.diamondValue;
                 this.sound.play('collect');
                 if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
                     this.exitOpen = true;
@@ -923,7 +925,7 @@ class Game {
         
         if (result.collected) {
             this.diamondsCollected++;
-            this.score += GAME_SETTINGS.DIAMOND_VALUE;
+            this.score += this.exitOpen ? this.extraDiamondValue : this.diamondValue;
             this.sound.play('collect');
             if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
                 this.exitOpen = true;
@@ -946,11 +948,18 @@ class Game {
         const crushedEnemies = this.physics.checkEnemiesCrushed(this.enemies);
         for (const idx of crushedEnemies.reverse()) {
             const enemy = this.enemies[idx];
-            // Classic Boulder Dash: enemies explode into 3x3 diamonds
-            const newDiamonds = this.physics.explodeEnemy(enemy.x, enemy.y);
             this.createCrashAnimation(enemy.x, enemy.y);
             this.sound.play('crush');
-            this.score += 100 + (newDiamonds * GAME_SETTINGS.DIAMOND_VALUE);
+            
+            if (enemy.type === ELEMENT_TYPES.BUTTERFLY) {
+                // Butterflies explode into 3x3 diamonds
+                const newDiamonds = this.physics.explodeButterfly(enemy.x, enemy.y);
+                this.score += 100 + (newDiamonds * this.diamondValue);
+            } else {
+                // Fireflies explode into 3x3 empty space
+                this.physics.explodeFirefly(enemy.x, enemy.y);
+                this.score += 100;
+            }
             this.enemies.splice(idx, 1);
         }
     }
@@ -1126,7 +1135,7 @@ class Game {
         }
         
         for (const enemy of this.enemies) {
-            this.drawTile(enemy.x, enemy.y, ELEMENT_TYPES.ENEMY);
+            this.drawTile(enemy.x, enemy.y, enemy.type || ELEMENT_TYPES.ENEMY);
         }
         
         // Draw explosion animations

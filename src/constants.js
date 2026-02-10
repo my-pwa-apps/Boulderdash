@@ -12,8 +12,9 @@ export const ELEMENT_TYPES = {
     DIAMOND: 4,
     EXIT: 5,
     PLAYER: 6,
-    ENEMY: 7,
-    MAGIC_WALL: 8
+    ENEMY: 7,       // Firefly (left-wall follower, explodes to space)
+    MAGIC_WALL: 8,
+    BUTTERFLY: 9    // Butterfly (right-wall follower, explodes to diamonds)
 };
 
 // C64 color palette - authentic Commodore 64 Boulder Dash colors
@@ -46,7 +47,8 @@ export const COLORS = {
     EXIT: C64.GREY,             // Steel door (flashes green when open)
     PLAYER: C64.WHITE,          // Rockford - white
     ENEMY: C64.RED,             // Firefly - red
-    MAGIC_WALL: C64.PURPLE      // Magic wall - purple shimmer
+    MAGIC_WALL: C64.PURPLE,     // Magic wall - purple shimmer
+    BUTTERFLY: C64.PURPLE       // Butterfly - purple
 };
 
 // Game settings balanced for classic Boulder Dash feel

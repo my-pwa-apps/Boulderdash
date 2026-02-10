@@ -76,6 +76,9 @@ function generateSprite(color, type) {
         case ELEMENT_TYPES.ENEMY:
             drawEnemy(ctx, color);
             break;
+        case ELEMENT_TYPES.BUTTERFLY:
+            drawButterfly(ctx, color);
+            break;
         case ELEMENT_TYPES.MAGIC_WALL:
             drawMagicWall(ctx, color);
             break;
@@ -285,6 +288,32 @@ function drawEnemy(ctx, color) {
         [K, R, L, Y, Y, L, R, K],
         [K, K, R, L, L, R, K, K],
         [K, K, K, R, R, K, K, K],
+    ];
+    
+    drawPixelMap(ctx, map);
+}
+
+/**
+ * C64 Boulder Dash butterfly - winged creature.
+ * In the original, butterflies follow right walls and explode into 9 diamonds when killed.
+ */
+function drawButterfly(ctx, color) {
+    const P = color;            // Purple body
+    const W = C64.WHITE;        // Wing highlights
+    const L = C64.LIGHT_BLUE;   // Wing color
+    const K = C64.BLACK;        // Background
+    const Y = C64.YELLOW;       // Eyes
+
+    // Butterfly with spread wings
+    const map = [
+        [K, L, K, K, K, K, L, K],
+        [L, W, L, K, K, L, W, L],
+        [L, L, L, P, P, L, L, L],
+        [K, L, K, Y, Y, K, L, K],
+        [K, K, K, P, P, K, K, K],
+        [K, L, K, P, P, K, L, K],
+        [L, W, L, K, K, L, W, L],
+        [K, L, K, K, K, K, L, K],
     ];
     
     drawPixelMap(ctx, map);
