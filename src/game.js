@@ -886,7 +886,7 @@ class Game {
                 this.diamondsCollected++;
                 this.score += GAME_SETTINGS.DIAMOND_VALUE;
                 this.sound.play('collect');
-                if (this.diamondsCollected >= this.requiredDiamonds) {
+                if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
                     this.exitOpen = true;
                     this.sound.play('exit');
                     this.screenFlash = 30; // Flash effect
@@ -915,7 +915,7 @@ class Game {
             this.diamondsCollected++;
             this.score += GAME_SETTINGS.DIAMOND_VALUE;
             this.sound.play('collect');
-            if (this.diamondsCollected >= this.requiredDiamonds) {
+            if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
                 this.exitOpen = true;
                 this.sound.play('exit');
                 this.screenFlash = 30; // Flash effect

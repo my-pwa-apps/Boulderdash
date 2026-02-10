@@ -10,7 +10,9 @@ export class GamePhysics {
         this.width = this.grid[0].length;
         this.height = this.grid.length;
         this.fallingObjects = new Set(); // Track falling boulders and diamonds
+        this.previouslyFalling = new Set(); // Track what was falling last frame
         this.lastUpdatedCell = null; // Track the last updated cell for animation
+        this.playerCrushedThisFrame = false; // Flag for crush detection
     }
     
     /**
@@ -34,9 +36,11 @@ export class GamePhysics {
      * @returns {boolean} - Whether any physics updates occurred
      */
     update() {
-        // Clear the set of falling objects
+        // Save previous falling objects before clearing
+        this.previouslyFalling = new Set(this.fallingObjects);
         this.fallingObjects.clear();
         this.lastUpdatedCell = null;
+        this.playerCrushedThisFrame = false;
         
         let physicsUpdated = false;
         
@@ -60,6 +64,25 @@ export class GamePhysics {
                     this.fallingObjects.add(`${x},${y+1}`);
                     this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
                     physicsUpdated = true;
+                } else if (below === ELEMENT_TYPES.PLAYER) {
+                    // Check if this object was falling - if so, crush the player!
+                    // Object at (x, y) was falling if it was at (x, y-1) last frame and fell to (x, y)
+                    // OR if it's currently marked as falling from being pushed/rolled
+                    const wasFalling = this.previouslyFalling.has(`${x},${y}`) || 
+                                       this.previouslyFalling.has(`${x},${y-1}`);
+                    if (wasFalling) {
+                        // Falling object lands on player - crush them!
+                        this.grid[y + 1][x] = element;
+                        this.grid[y][x] = ELEMENT_TYPES.EMPTY;
+                        this.playerCrushedThisFrame = true;
+                        this.lastUpdatedCell = { x, y: y+1, type: 'crush' };
+                        physicsUpdated = true;
+                    } else {
+                        // Not falling, try to roll off
+                        if (this.tryRollOptimized(x, y)) {
+                            physicsUpdated = true;
+                        }
+                    }
                 } else if (below === ELEMENT_TYPES.MAGIC_WALL) {
                     // Magic wall: Boulder becomes diamond, diamond becomes boulder
                     // Only if there's space below the magic wall
@@ -74,8 +97,7 @@ export class GamePhysics {
                     }
                 } else if (below === ELEMENT_TYPES.BOULDER || 
                           below === ELEMENT_TYPES.DIAMOND || 
-                          below === ELEMENT_TYPES.WALL || 
-                          below === ELEMENT_TYPES.PLAYER) {
+                          below === ELEMENT_TYPES.WALL) {
                     // Try to roll off
                     if (this.tryRollOptimized(x, y)) {
                         physicsUpdated = true;
@@ -306,6 +328,11 @@ export class GamePhysics {
      * In classic Boulder Dash, you have one frame to escape before getting crushed
      */
     isPlayerCrushed(playerX, playerY) {
+        // Check if crushed this frame by a falling object
+        if (this.playerCrushedThisFrame) {
+            return true;
+        }
+        
         // ONLY check if there's a boulder or diamond that has landed ON the player's position
         // This happens when physics.update() moves a falling object onto the player
         const playerElement = this.grid[playerY][playerX];
