@@ -2,7 +2,11 @@ import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js';
 
 /**
  * Original Boulder Dash cave definitions (16 classic caves A-P)
- * Using a compact representation that will be expanded to the full grid
+ * All patterns are exactly 40 chars wide x 22 rows tall to match GRID_WIDTH x GRID_HEIGHT.
+ * 
+ * Legend:
+ *   W = Wall  P = Player  E = Exit  * = Diamond  # = Boulder
+ *   F = Firefly (enemy)  M = Magic Wall  . = Dirt  (space) = Empty
  */
 export const CLASSIC_CAVES = [
     {
@@ -11,26 +15,30 @@ export const CLASSIC_CAVES = [
         timeLimit: 150,
         diamondsRequired: 10,
         diamondValue: 5,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP..*........*.........*..............EW
-W....###.......###........####.........W
-W....###.......###........####.........W
-W...*......*.......................*...W
-W...#######..........#########.........W
-W...#######..........#########.........W
-W......................................W
-W..........*...###...............*.....W
-W..............###.....................W
-W......................................W
-W.........############.................W
-W.........############.................W
-W.......*..............................W
-W...*......................*..###.....W
-W...........................*..###.....W
-W......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP..*........*.........*..............EW',
+            'W....###.......###........####.........W',
+            'W....###.......###........####.........W',
+            'W...*......*.......................*...W',
+            'W...#######..........#########.........W',
+            'W...#######..........#########.........W',
+            'W......................................W',
+            'W..........*...###...............*.....W',
+            'W..............###.....................W',
+            'W......................................W',
+            'W.........############.................W',
+            'W.........############.................W',
+            'W.......*..............................W',
+            'W...*......................*.###.......W',
+            'W...........................###........W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 0
     },
     {
@@ -39,26 +47,30 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 150,
         diamondsRequired: 12,
         diamondValue: 10,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP......*......*......*...............EW
-W......................................W
-W...WWW....WWW....WWW....WWW...........W
-W...W.*....W.*....W.*....W.*...........W
-W...W......W......W......W.............W
-W...WWW....WWW....WWW....WWW...........W
-W......................................W
-W..###.................................W
-W..###.................................W
-W....*................................W
-W...WWW....WWW....WWW....WWW...........W
-W...W.*....W.*....W.*....W.*...........W
-W...W......W......W......W.............W
-W...WWW....WWW....WWW....WWW...........W
-W......................................W
-W......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP......*......*......*...............EW',
+            'W......................................W',
+            'W...WWW....WWW....WWW....WWW...........W',
+            'W...W.*....W.*....W.*....W.*...........W',
+            'W...W......W......W......W.............W',
+            'W...WWW....WWW....WWW....WWW...........W',
+            'W......................................W',
+            'W..###.................................W',
+            'W..###.................................W',
+            'W....*.....................*...........W',
+            'W...WWW....WWW....WWW....WWW...........W',
+            'W...W.*....W.*....W.*....W.*...........W',
+            'W...W......W......W......W.............W',
+            'W...WWW....WWW....WWW....WWW...........W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 1
     },
     {
@@ -67,26 +79,30 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 180,
         diamondsRequired: 15,
         diamondValue: 12,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP*...W.......W.......W.......W.......EW
-W.WWW.W.WWWWW.W.WWWWW.W.WWWWW.W.WWWWW.W
-W.W.*.W.W..*W.W.W..*W.W.W..*W.W.W..*W.W
-W.W.WWW.W.W.W.W.W.W.W.W.W.W.W.W.W.W.W.W
-W.W.....W.W...W.W.W...W.W.W...W.W.W...W
-W.WWWWWWW.WWWWW.W.WWWWW.W.WWWWW.W.WWW.W
-W.........W.....W.....W.W.....W.W.....W
-W.WWWWW.WWW.WWWWWWWWW.W.W.WWW.W.WWWWW.W
-W.W..*W.W.*.W.........W.W.W.*.W.....W.W
-W.W.W.W.W.W.WWWWWWWWWWW.W.W.W.WWWWW.W.W
-W.W.W.W.W.W...........W.W.W.W.....W.W.W
-W.W.W.W.W.WWWWWWWWWWW.W.W.W.WWWWW.W.W.W
-W.W.W.*.W.*.W.......W.*.W.*.W..*W.*.W.W
-W.W.WWWWWWW.W.WWWWW.WWWWWWW.W.W.W.W.W.W
-W.W.........W.....W.........W.W...W...W
-W.....................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP*...W.......W.......W.......W......EW',
+            'W.WWW.W.WWWWW.W.WWWWW.W.WWWWW.W.WWWW.W',
+            'W.W.*.W.W..*W.W.W..*W.W.W..*W.W.W.*W.W',
+            'W.W.WWW.W.W.W.W.W.W.W.W.W.W.W.W.W.W.W',
+            'W.W.....W.W...W.W.W...W.W.W...W.W.W..W',
+            'W.WWWWWWW.WWWWW.W.WWWWW.W.WWWWW.W.WW.W',
+            'W.........W.....W.....W.W.....W.W....W',
+            'W.WWWWW.WWW.WWWWWWWWW.W.W.WWW.W.WWWW.W',
+            'W.W..*W.W.*.W.........W.W.W.*.W....W.W',
+            'W.W.W.W.W.W.WWWWWWWWWWW.W.W.W.WWWW.W.W',
+            'W.W.W.W.W.W...........W.W.W.W....W.W.W',
+            'W.W.W.W.W.WWWWWWWWWWW.W.W.W.WWWW.W.W.W',
+            'W.W.W.*.W.*.W.......W.*.W.*.W..*..*.W.W',
+            'W.W.WWWWWWW.W.WWWWW.WWWWWWW.W.W.W.W.W',
+            'W.W.........W.....W.........W.W..W..WW',
+            'W.....................................WW',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 2
     },
     {
@@ -95,27 +111,31 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 120,
         diamondsRequired: 10,
         diamondValue: 15,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP..*.................................EW
-W.....WWW.W.......WWW.W.......WWW.W....W
-W.....W.*.W.......W.*.W.......W.*.W....W
-W.....W.F.W.......W.F.W.......W.F.W....W
-W.....W...W.......W...W.......W...W....W
-W.....WWWWW.......WWWWW.......WWWWW....W
-W....*................................W
-W...........##############............W
-W...........##############............W
-W..*..................................W
-W.....WWWWW.......WWWWW.......WWWWW....W
-W.....W...W.......W...W.......W...W....W
-W.....W.F.W.......W.F.W.......W.F.W....W
-W.....W.*.W.......W.*.W.......W.*.W..*.W
-W.....W.W.W.......W.W.W.......W.W.W....W
-W......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
-        enemies: 3
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP..*.................................EW',
+            'W.....WWW.W.......WWW.W.......WWW.W...W',
+            'W.....W.*.W.......W.*.W.......W.*.W...W',
+            'W.....W.F.W.......W.F.W.......W.F.W...W',
+            'W.....W...W.......W...W.......W...W...W',
+            'W.....WWWWW.......WWWWW.......WWWWW...W',
+            'W...*.....*.....*.....*...............W',
+            'W..........##############.............W',
+            'W..........##############.............W',
+            'W..*...............................*..W',
+            'W.....WWWWW.......WWWWW.......WWWWW...W',
+            'W.....W...W.......W...W.......W...W...W',
+            'W.....W.F.W.......W.F.W.......W.F.W...W',
+            'W.....W.*.W.......W.*.W.......W.*.W.*.W',
+            'W.....W.W.W.......W.W.W.......W.W.W...W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
+        enemies: 6
     },
     {
         // Cave E: "Guards"
@@ -123,27 +143,31 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 150,
         diamondsRequired: 18,
         diamondValue: 8,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP..*.....*.....*.....*.....*.....*...EW
-W...*.....*.....*.....*.....*.....*.....W
-W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWW....W
-W...W..*......F.........F.........W....W
-W...W...##################....W....W
-W...W...*#################....W....W
-W...W.............................W....W
-W...W....*........................W....W
-W...W.............................W....W
-W...W...*#################....W....W
-W...W...##################....W....W
-W...W..*......F.........F.........W....W
-W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWW....W
-W......................................W
-W.....................*................W
-W......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
-        enemies: 2
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP..*.....*.....*.....*.....*........EW',
+            'W...*.....*.....*.....*.....*.........W',
+            'W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW....W',
+            'W...W..*......F.........F........W....W',
+            'W...W....##################......W....W',
+            'W...W...*##################......W....W',
+            'W...W.............................W....W',
+            'W...W....*........................W....W',
+            'W...W.............................W....W',
+            'W...W...*##################......W....W',
+            'W...W....##################......W....W',
+            'W...W..*......F.........F........W....W',
+            'W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW....W',
+            'W......................................W',
+            'W.....................*................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
+        enemies: 4
     },
     {
         // Cave F: "Firefly Dens"
@@ -151,27 +175,31 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 150,
         diamondsRequired: 20,
         diamondValue: 10,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP*..*...*..*...*..*..................EW
-W...WWWWWWW...WWWWWWW...WWWWWWW.......W
-W...W..*..W...W..*..W...W..*..W.......W
-W...W..F..W...W..F..W...W..F..W.......W
-W..*W.....W..*W.....W..*W.....W.......W
-W...WWWWWWW...WWWWWWW...WWWWWWW.......W
-W....*.....*.....*.....*..............W
-W......########################........W
-W......########################........W
-W.......*.....*.....*.....*...........W
-W...WWWWWWW...WWWWWWW...WWWWWWW.......W
-W..*W.....W..*W.....W..*W.....W.......W
-W...W..F..W...W..F..W...W..F..W.......W
-W...W..*..W...W..*..W...W..*..W.......W
-W...WWWWWWW...WWWWWWW...WWWWWWW.......W
-W......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
-        enemies: 4
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP*..*...*..*...*..*..................EW',
+            'W...WWWWWWW...WWWWWWW...WWWWWWW........W',
+            'W...W..*..W...W..*..W...W..*..W........W',
+            'W...W..F..W...W..F..W...W..F..W........W',
+            'W..*W.....W..*W.....W..*W.....W........W',
+            'W...WWWWWWW...WWWWWWW...WWWWWWW........W',
+            'W....*.....*.....*.....*..............W',
+            'W......########################.......W',
+            'W......########################.......W',
+            'W.......*.....*.....*.....*...........W',
+            'W...WWWWWWW...WWWWWWW...WWWWWWW........W',
+            'W..*W.....W..*W.....W..*W.....W........W',
+            'W...W..F..W...W..F..W...W..F..W........W',
+            'W...W..*..W...W..*..W...W..*..W........W',
+            'W...WWWWWWW...WWWWWWW...WWWWWWW........W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
+        enemies: 6
     },
     {
         // Cave G: "Amoeba"
@@ -179,54 +207,62 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 200,
         diamondsRequired: 25,
         diamondValue: 5,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP*************************...........EW
-W.......................................W
-W.......................................W
-W...........WWWWWWWWWWWWW..............W
-W...........W...........W..............W
-W...........W...........W..............W
-W...........W...........W..............W
-W...........W...........W..............W
-W...........W...........W..............W
-W...........W...........W..............W
-W...........W...........W..............W
-W...........WWWWWWWWWWWWW..............W
-W.......................................W
-W.......................................W
-W.....##########################......W
-W.....##########################......W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP*************************...........EW',
+            'W......................................W',
+            'W......................................W',
+            'W...........WWWWWWWWWWWWW..............W',
+            'W...........W...........W..............W',
+            'W...........W...........W..............W',
+            'W...........W...........W..............W',
+            'W...........W...........W..............W',
+            'W...........W...........W..............W',
+            'W...........W...........W..............W',
+            'W...........W...........W..............W',
+            'W...........WWWWWWWWWWWWW..............W',
+            'W......................................W',
+            'W......................................W',
+            'W.....##########################......W',
+            'W.....##########################......W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 5
     },
     {
-        // Cave H: "Enchanted Wall" - Features magic walls that convert boulders to diamonds!
+        // Cave H: "Enchanted Wall" - Features magic walls
         name: "ENCHANTED WALL",
         timeLimit: 180,
         diamondsRequired: 22,
         diamondValue: 12,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP...#####....#####....#####..........EW
-W....#####....#####....#####...........W
-W......................................W
-MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMW
-W......................................W
-W..*........*.........*........*.......W
-W......................................W
-W...#####....#####....#####............W
-W...#####....#####....#####............W
-W......................................W
-MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMW
-W......................................W
-W...*........*.........*........*......W
-W......................................W
-W......................................W
-W......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP...#####....#####....#####..........EW',
+            'W....#####....#####....#####...........W',
+            'W......................................W',
+            'MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMW',
+            'W......................................W',
+            'W..*........*.........*........*.......W',
+            'W......................................W',
+            'W...#####....#####....#####............W',
+            'W...#####....#####....#####............W',
+            'W......................................W',
+            'MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMW',
+            'W......................................W',
+            'W...*........*.........*........*......W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 2
     },
     {
@@ -235,26 +271,30 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 100,
         diamondsRequired: 30,
         diamondValue: 6,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP******************************......EW
-W.......................................W
-W.......................................W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W...........#############..............W
-W.......................................W
-W.......................................W
-W.......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP*****************************........EW',
+            'W......................................W',
+            'W......................................W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W...........#############..............W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 6
     },
     {
@@ -263,26 +303,30 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 180,
         diamondsRequired: 16,
         diamondValue: 15,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.....EW
-W...W...W...W...W...W...W...W...W...W..W
-W...W...W...W...W...W...W...W...W...W..W
-W...W...W...W...W...W...W...W...W...W..W
-W.......................................W
-W.W...W...W...W...W...W...W...W...W...WW
-W.W...W...W...W...W...W...W...W...W...WW
-W.W...W...W...W...W...W...W...W...W...WW
-W.......................................W
-W...W...W...W...W...W...W...W...W...W..W
-W...W...W...W...W...W...W...W...W...W..W
-W...W...W...W...W...W...W...W...W...W..W
-W.......................................W
-W.W...W...W...W...W...W...W...W...W...WW
-W.W...W...W...W...W...W...W...W...W...WW
-W.W...W...W...W...W...W...W...W...W...WW
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.....EW',
+            'W..W...W...W...W...W...W...W...W...W..W',
+            'W..W...W...W...W...W...W...W...W...W..W',
+            'W..W...W...W...W...W...W...W...W...W..W',
+            'W......................................W',
+            'WW..W...W...W...W...W...W...W...W...W.W',
+            'WW..W...W...W...W...W...W...W...W...W.W',
+            'WW..W...W...W...W...W...W...W...W...W.W',
+            'W......................................W',
+            'W..W...W...W...W...W...W...W...W...W..W',
+            'W..W...W...W...W...W...W...W...W...W..W',
+            'W..W...W...W...W...W...W...W...W...W..W',
+            'W......................................W',
+            'WW..W...W...W...W...W...W...W...W...W.W',
+            'WW..W...W...W...W...W...W...W...W...W.W',
+            'WW..W...W...W...W...W...W...W...W...W.W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 4
     },
     {
@@ -291,27 +335,31 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 150,
         diamondsRequired: 24,
         diamondValue: 10,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP************************............EW
-W.......................................W
-W...WWWWWWWWW...........WWWWWWWWWW....W
-W...W.......W.....F.....W.......W......W
-W...W..###..W...........W..###..W......W
-W...W..###..W.....F.....W..###..W......W
-W...W.......W...........W.......W......W
-W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW....W
-W.......................................W
-W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW....W
-W...W.......W.....F.....W.......W......W
-W...W..###..W...........W..###..W......W
-W...W..###..W.....F.....W..###..W......W
-W...W.......W...........W.......W......W
-W...WWWWWWWWW...........WWWWWWWWWW....W
-W.......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
-        enemies: 5
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP************************............EW',
+            'W......................................W',
+            'W...WWWWWWWWW..........WWWWWWWWW.......W',
+            'W...W.......W....F....W.......W.......W',
+            'W...W..###..W.........W..###..W.......W',
+            'W...W..###..W....F....W..###..W.......W',
+            'W...W.......W.........W.......W.......W',
+            'W...WWWWWWWWWWWWWWWWWWWWWWWWWWWW.......W',
+            'W......................................W',
+            'W...WWWWWWWWWWWWWWWWWWWWWWWWWWWW.......W',
+            'W...W.......W....F....W.......W.......W',
+            'W...W..###..W.........W..###..W.......W',
+            'W...W..###..W....F....W..###..W.......W',
+            'W...W.......W.........W.......W.......W',
+            'W...WWWWWWWWW..........WWWWWWWWW.......W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
+        enemies: 4
     },
     {
         // Cave L: "Walls"
@@ -319,26 +367,30 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 200,
         diamondsRequired: 20,
         diamondValue: 12,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP********************................EW
-WWWWWWWWWWWW...........WWWWWWWWWWWWWW.W
-W.......................................W
-W.WWWWWWWWWWWWWW....WWWWWWWWWWWWWWWWW.W
-W.......................................W
-W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW...W
-W.......................................W
-W.WWWWWWWWWWWWWW....WWWWWWWWWWWWWWWWW.W
-W.......................................W
-WWWWWWWWWWWW...........WWWWWWWWWWWWWW.W
-W.......................................W
-W.WWWWWWWWWWWWWW....WWWWWWWWWWWWWWWWW.W
-W.......................................W
-W...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW...W
-W.......................................W
-W.....##########################......W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP********************................EW',
+            'WWWWWWWWWWWW.........WWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWW..WWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W..WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWW..WWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'WWWWWWWWWWWW.........WWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWW..WWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W..WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.....##########################......W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 4
     },
     {
@@ -347,27 +399,31 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 120,
         diamondsRequired: 28,
         diamondValue: 8,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP****************************........EW
-W.......................................W
-W..#################################..W
-W..#################################..W
-W..#################################..W
-W.......................................W
-W.......................................W
-W.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F..W
-W.......................................W
-W.......................................W
-W..#################################..W
-W..#################################..W
-W..#################################..W
-W.......................................W
-W.......................................W
-W.......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
-        enemies: 8
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP****************************........EW',
+            'W......................................W',
+            'W..#################################..W',
+            'W..#################################..W',
+            'W..#################################..W',
+            'W......................................W',
+            'W......................................W',
+            'WF.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F.F.FW',
+            'W......................................W',
+            'W......................................W',
+            'W..#################################..W',
+            'W..#################################..W',
+            'W..#################################..W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
+        enemies: 18
     },
     {
         // Cave N: "Zigzag"
@@ -375,26 +431,30 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 180,
         diamondsRequired: 18,
         diamondValue: 14,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.EW
-W...W...............................W..W
-W.....W...........................W.....W
-W.......W.......................W.......W
-W.........W...................W.........W
-W...........W...............W...........W
-W.............W...........W.............W
-W...............W.......W...............W
-W.................W...W.................W
-W...................W...................W
-W.................W...W.................W
-W...............W.......W...............W
-W.............W...........W.............W
-W...........W...............W...........W
-W.........W...................W.........W
-W.......W.......................W.......W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*.EW',
+            'W..W...............................W..W',
+            'W....W...........................W....W',
+            'W......W.......................W......W',
+            'W........W...................W........W',
+            'W..........W...............W..........W',
+            'W............W...........W............W',
+            'W..............W.......W..............W',
+            'W................W...W................W',
+            'W.................W.W.................W',
+            'W................W...W................W',
+            'W..............W.......W..............W',
+            'W............W...........W............W',
+            'W..........W...............W..........W',
+            'W........W...................W........W',
+            'W......W.......................W......W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 3
     },
     {
@@ -403,26 +463,30 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 150,
         diamondsRequired: 26,
         diamondValue: 9,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP**************************..........EW
-W.......................................W
-W#####################################W
-W#####################################W
-W.......................................W
-W.......................................W
-W.W.................................W...W
-W...W.............................W.....W
-W.....W.........................W.......W
-W.......W.....................W.........W
-W.........W.................W...........W
-W...........W.............W.............W
-W.............W.........W...............W
-W...............W.....W.................W
-W.................W.W...................W
-W.......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP**************************..........EW',
+            'W......................................W',
+            'W#####################################W',
+            'W#####################################W',
+            'W......................................W',
+            'W......................................W',
+            'W.W...............................W....W',
+            'W...W...........................W.....W',
+            'W.....W.......................W.......W',
+            'W.......W...................W.........W',
+            'W.........W...............W...........W',
+            'W...........W...........W.............W',
+            'W.............W.......W...............W',
+            'W...............W...W.................W',
+            'W.................WW..................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 5
     },
     {
@@ -431,49 +495,65 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         timeLimit: 200,
         diamondsRequired: 30,
         diamondValue: 10,
-        pattern: `
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-WP******************************......EW
-W.......................................W
-W.......................................W
-W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..W
-W.......................................W
-W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..W
-W.......................................W
-W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..W
-W.......................................W
-W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..W
-W.......................................W
-W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..W
-W.......................................W
-W.##################################..W
-W.##################################..W
-W.......................................W
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        `,
+        pattern: [
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+            'WP*****************************........EW',
+            'W......................................W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W',
+            'W......................................W',
+            'W.##################################..W',
+            'W.##################################..W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'W......................................W',
+            'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        ].join('\n'),
         enemies: 6
     }
 ];
 
 /**
  * Parse a pattern string into a grid
- * W = Wall, P = Player, E = Exit, * = Diamond, # = Boulder, F = Firefly (enemy), . = dirt (diggable), (space) = empty
+ * W = Wall, P = Player, E = Exit, * = Diamond, # = Boulder, F = Firefly (enemy),
+ * . = dirt (diggable), (space) = empty, M = Magic Wall
+ * Grid is always padded to exact width x height with walls on borders and dirt inside.
  */
 export function parsePattern(pattern, width, height) {
-    const lines = pattern.trim().split('\n').map(line => line.trim());
+    const lines = pattern.trim().split('\n').map(line => line.trimEnd());
     const grid = [];
     let playerPos = null;
     let exitPos = null;
     const enemies = [];
     const diamonds = [];
     
-    for (let y = 0; y < Math.min(height, lines.length); y++) {
+    for (let y = 0; y < height; y++) {
         const row = [];
-        const line = lines[y] || '';
+        const line = y < lines.length ? lines[y] : '';
         
         for (let x = 0; x < width; x++) {
-            const char = line[x] || '.';
-            let cell = ELEMENT_TYPES.DIRT;
+            // Beyond pattern bounds: walls on borders, dirt inside
+            if (y >= lines.length || x >= line.length) {
+                if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
+                    row.push(ELEMENT_TYPES.WALL);
+                } else {
+                    row.push(ELEMENT_TYPES.DIRT);
+                }
+                continue;
+            }
+            
+            const char = line[x];
+            let cell;
             
             switch (char) {
                 case 'W':

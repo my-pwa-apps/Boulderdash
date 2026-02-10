@@ -3,7 +3,7 @@ import { generateLevel } from './level-generator.js';
 import { GamePhysics } from './physics.js';
 import { SoundManager } from './sound.js';
 import { TouchControls } from './touch-controls.js';
-import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64 } from './constants.js';
+import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js';
 import { formatTime, debounce } from './utils.js';
 import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js';
 
@@ -19,6 +19,23 @@ class Game {
         this.playerAnimationFrame = 0;
         this.playerAnimationCounter = 0;
         this.particles = [];
+        
+        // Diamond rotation animation (4 frames like C64 BD)
+        this.diamondAnimFrame = 0;
+        this.diamondAnimTimer = 0;
+        
+        // Rockford idle animation (blink + foot tap)
+        this.playerIdleTimer = 0;
+        this.playerIdleFrame = 0;
+        this.playerIsIdle = false;
+        this.playerLastMoveTime = 0;
+        
+        // Explosion animation tracking {x, y, frame, timer}
+        this.explosions = [];
+        
+        // Movement rate limiting (C64 BD: Rockford moves ~6 tiles/sec)
+        this.moveTimer = 0;
+        this.moveInterval = 133; // ms between moves (~7.5 tiles/sec, authentic feel)
         this.backgroundPattern = this.createBackgroundPattern();
         this.scoreElement = document.getElementById('score');
         this.highScoreElement = document.getElementById('highScore');
@@ -286,7 +303,7 @@ class Game {
                     this.handlePlayerDeath("Time's up!");
                 }
                 if (this.timeRemaining <= 15) {
-                    this.timeElement.style.color = this.timeRemaining % 2 === 0 ? '#ff5555' : '#ffcc00';
+                    this.timeElement.style.color = this.timeRemaining % 2 === 0 ? C64.LIGHT_RED : C64.YELLOW;
                 }
             }
         }, 1000);
@@ -310,8 +327,15 @@ class Game {
         this.diamondsCollected = 0;
         this.exitOpen = false;
         this.particles = [];
+        this.explosions = [];
         this.playerAnimationFrame = 0;
         this.playerAnimationCounter = 0;
+        this.diamondAnimFrame = 0;
+        this.diamondAnimTimer = 0;
+        this.playerIdleTimer = 0;
+        this.playerIdleFrame = 0;
+        this.playerIsIdle = false;
+        this.moveTimer = 0;
         this._lastHUD = {}; // Reset HUD cache for new level
         
         // Set time limit from level data or use default
@@ -363,7 +387,10 @@ class Game {
         if (h.time !== this.timeRemaining) {
             h.time = this.timeRemaining;
             this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
-            this.timeElement.style.color = C64.YELLOW;
+            // Only reset to normal color when not in low-time warning
+            if (this.timeRemaining > 15) {
+                this.timeElement.style.color = C64.YELLOW;
+            }
         }
         
         if (h.level !== this.level) {
@@ -405,7 +432,7 @@ class Game {
                 }
                 this.aiMoveCounter = 0;
             }
-        } else if (this.playerNextDirection) {
+        } else if (this.playerNextDirection && this.moveTimer >= this.moveInterval) {
             // If space is pressed, grab item instead of moving
             if (this.spacePressed) {
                 this.handlePlayerGrab(this.playerNextDirection);
@@ -413,6 +440,7 @@ class Game {
                 this.handlePlayerMove(this.playerNextDirection);
             }
             this.playerNextDirection = null;
+            this.moveTimer = 0;
         }
         
         // Sync grid reference from physics (read-only, no clone needed)
@@ -425,6 +453,37 @@ class Game {
             this.playerAnimationCounter = 0;
             this.playerAnimationFrame = (this.playerAnimationFrame + 1) % 4;
         }
+        
+        // Diamond rotation animation (~5 fps like C64 BD)
+        this.diamondAnimTimer += cappedDelta;
+        if (this.diamondAnimTimer >= 200) {
+            this.diamondAnimTimer = 0;
+            this.diamondAnimFrame = (this.diamondAnimFrame + 1) % 4;
+        }
+        
+        // Rockford idle detection (idle after 1 second of no movement)
+        this.playerIdleTimer += cappedDelta;
+        if (this.playerIdleTimer > 1000) {
+            this.playerIsIdle = true;
+        }
+        if (this.playerIsIdle) {
+            this.playerIdleFrame = Math.floor((this.playerIdleTimer - 1000) / 400) % 4;
+        }
+        
+        // Update explosion animations
+        for (let i = this.explosions.length - 1; i >= 0; i--) {
+            this.explosions[i].timer += cappedDelta;
+            if (this.explosions[i].timer >= 150) {
+                this.explosions[i].timer = 0;
+                this.explosions[i].frame++;
+                if (this.explosions[i].frame >= 3) {
+                    this.explosions.splice(i, 1);
+                }
+            }
+        }
+        
+        // Movement rate limiting
+        this.moveTimer += cappedDelta;
         
         if (this.screenShake > 0) {
             this.screenShake -= cappedDelta / 20;
@@ -619,22 +678,19 @@ class Game {
     
     findNearestTargetBFS(px, py, allowRisky = false) {
         // BFS to find nearest reachable diamond, exit (if open), or dirt
-        // This guarantees finding a path if one exists
         const visited = new Set([`${px},${py}`]);
-        const maxNodes = 2000; // Allow searching the entire grid multiple times if needed
+        const maxNodes = 2000;
         let nodesProcessed = 0;
         
-        // Initialize queue with immediate neighbors
         const queue = [];
         const dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
         
-        // Start by adding all valid neighbors
         for (const dir of dirs) {
             const nextPos = this.getNewPosition(px, py, dir);
             const key = `${nextPos.x},${nextPos.y}`;
             if (this.isValidAIMove(nextPos.x, nextPos.y, allowRisky)) {
                 visited.add(key);
-                queue.push({ x: nextPos.x, y: nextPos.y, path: [dir], firstDir: dir });
+                queue.push({ x: nextPos.x, y: nextPos.y, depth: 1, firstDir: dir });
             }
         }
         
@@ -649,23 +705,20 @@ class Game {
             
             const cell = this.grid[current.y][current.x];
             
-            // Found a diamond - immediate return
             if (cell === ELEMENT_TYPES.DIAMOND) {
                 return current.firstDir;
             }
             
-            // Found the exit when it's open - immediate return
             if (this.exitOpen && cell === ELEMENT_TYPES.EXIT) {
                 return current.firstDir;
             }
             
-            // Track nearest dirt as fallback (for exploration)
-            if (cell === ELEMENT_TYPES.DIRT && current.path.length < nearestDirtDist) {
+            if (cell === ELEMENT_TYPES.DIRT && current.depth < nearestDirtDist) {
                 nearestDirtPath = current.firstDir;
-                nearestDirtDist = current.path.length;
+                nearestDirtDist = current.depth;
             }
             
-            // Explore neighbors in shuffled order to avoid directional bias
+            // Shuffle to avoid directional bias
             const shuffledDirs = [...dirs];
             for (let i = shuffledDirs.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -681,14 +734,13 @@ class Game {
                     queue.push({ 
                         x: nextPos.x, 
                         y: nextPos.y, 
-                        path: [...current.path, dir],
-                        firstDir: current.firstDir  // Keep track of original direction
+                        depth: current.depth + 1,
+                        firstDir: current.firstDir
                     });
                 }
             }
         }
         
-        // If no diamond/exit found, go to nearest dirt for exploration
         if (nearestDirtPath) {
             return nearestDirtPath;
         }
@@ -747,14 +799,8 @@ class Game {
     }
     
     getNewPosition(x, y, direction) {
-        const newPos = { x, y };
-        switch (direction) {
-            case 'UP': newPos.y--; break;
-            case 'DOWN': newPos.y++; break;
-            case 'LEFT': newPos.x--; break;
-            case 'RIGHT': newPos.x++; break;
-        }
-        return newPos;
+        const d = DIRECTIONS[direction];
+        return { x: x + d.x, y: y + d.y };
     }
     
     isValidAIMove(x, y, allowRisky = false) {
@@ -819,6 +865,12 @@ class Game {
     handlePlayerMove(direction) {
         if (!this.physics) return;
         this.playerDirection = direction;
+        
+        // Reset idle animation
+        this.playerIsIdle = false;
+        this.playerIdleTimer = 0;
+        this.playerIdleFrame = 0;
+        
         const result = this.physics.movePlayer(
             this.playerPosition.x, 
             this.playerPosition.y, 
@@ -1005,29 +1057,20 @@ class Game {
         const centerY = y * TILE_SIZE + TILE_SIZE / 2;
         this.screenShake = 20;
         
-        for (let i = 0; i < 30; i++) {
+        // Add explosion animation at enemy position
+        this.explosions.push({ x, y, frame: 0, timer: 0 });
+        
+        // C64-style square debris particles
+        for (let i = 0; i < 16; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 5 + 2;
-            const size = Math.random() * 5 + 3;
-            const life = Math.random() * 40 + 30;
+            const speed = Math.random() * 4 + 2;
+            const size = Math.random() * 3 + 2;
+            const life = Math.random() * 30 + 20;
             this.particles.push({
                 x: centerX, y: centerY,
                 vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
                 color: i % 3 === 0 ? C64.ORANGE : (i % 3 === 1 ? C64.YELLOW : C64.RED),
                 size: size, life: life, gravity: 0.2
-            });
-        }
-        
-        for (let i = 0; i < 15; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 20;
-            const speed = Math.random() * 1.5;
-            this.particles.push({
-                x: centerX + Math.cos(angle) * distance,
-                y: centerY + Math.sin(angle) * distance,
-                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                color: C64.GREY, size: Math.random() * 8 + 4,
-                life: Math.random() * 60 + 30, gravity: 0.05, opacity: 0.7
             });
         }
     }
@@ -1076,12 +1119,20 @@ class Game {
             this.drawTile(enemy.x, enemy.y, ELEMENT_TYPES.ENEMY);
         }
         
+        // Draw explosion animations
+        for (const exp of this.explosions) {
+            if (this.sprites.explosionFrames && this.sprites.explosionFrames[exp.frame]) {
+                const posX = exp.x * TILE_SIZE;
+                const posY = exp.y * TILE_SIZE;
+                this.ctx.drawImage(this.sprites.explosionFrames[exp.frame], posX, posY, TILE_SIZE, TILE_SIZE);
+            }
+        }
+        
+        // C64-style square pixel particles (no circles)
         for (const p of this.particles) {
             this.ctx.fillStyle = p.color;
             this.ctx.globalAlpha = Math.max(0, p.life / (p.life + 10)) * (p.opacity || 1);
-            this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            this.ctx.fill();
+            this.ctx.fillRect(Math.floor(p.x - p.size / 2), Math.floor(p.y - p.size / 2), Math.ceil(p.size), Math.ceil(p.size));
             this.ctx.globalAlpha = 1;
         }
         
@@ -1119,6 +1170,32 @@ class Game {
     drawTile(x, y, element) {
         const posX = x * TILE_SIZE;
         const posY = y * TILE_SIZE;
+        
+        // Diamond rotation animation
+        if (element === ELEMENT_TYPES.DIAMOND && this.sprites.diamondFrames) {
+            const frame = this.sprites.diamondFrames[this.diamondAnimFrame];
+            if (frame) {
+                this.ctx.drawImage(frame, posX, posY, TILE_SIZE, TILE_SIZE);
+                return;
+            }
+        }
+        
+        // Player sprite with direction and idle animation
+        if (element === ELEMENT_TYPES.PLAYER) {
+            let sprite;
+            if (this.playerIsIdle && this.sprites.playerIdle) {
+                sprite = this.sprites.playerIdle[this.playerIdleFrame];
+            } else if (this.playerDirection === 'LEFT' && this.sprites.playerLeft) {
+                sprite = this.sprites.playerLeft;
+            } else if (this.playerDirection === 'RIGHT' && this.sprites.playerRight) {
+                sprite = this.sprites.playerRight;
+            }
+            if (sprite) {
+                this.ctx.drawImage(sprite, posX, posY, TILE_SIZE, TILE_SIZE);
+                return;
+            }
+        }
+        
         if (this.sprites[element]) {
             this.ctx.drawImage(this.sprites[element], posX, posY, TILE_SIZE, TILE_SIZE);
         }

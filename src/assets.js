@@ -88,7 +88,7 @@ function generateSprite(color, type) {
 }
 
 /**
- * Generate all game assets
+ * Generate all game assets including animated sprite frames
  */
 export function generateAssets() {
     spriteCache.clear();
@@ -98,6 +98,17 @@ export function generateAssets() {
         const color = COLORS[type];
         assets[value] = generateSprite(color, value);
     });
+    
+    // Generate animated diamond frames (4 rotation frames like C64 BD)
+    assets.diamondFrames = generateDiamondFrames();
+    
+    // Generate Rockford directional and idle sprites
+    assets.playerLeft = generatePlayerSprite('LEFT');
+    assets.playerRight = generatePlayerSprite('RIGHT');
+    assets.playerIdle = generatePlayerIdleFrames();
+    
+    // Generate explosion frames (white flash → space → diamonds)
+    assets.explosionFrames = generateExplosionFrames();
     
     return assets;
 }
@@ -304,4 +315,254 @@ function drawMagicWall(ctx, color) {
     drawPixelMap(ctx, map);
 }
 
+/**
+ * Generate 4 diamond rotation frames (iconic C64 BD diamond spin).
+ * Frame 0: Full diamond (default)
+ * Frame 1: Slightly narrower  
+ * Frame 2: Edge-on (thin vertical line)
+ * Frame 3: Slightly narrower (mirror of frame 1)
+ */
+function generateDiamondFrames() {
+    const W = C64.WHITE;
+    const C = C64.CYAN;
+    const B = C64.LIGHT_BLUE;
+    const K = C64.BLACK;
+    
+    const frameMaps = [
+        // Frame 0: Full diamond
+        [
+            [K, K, K, C, C, K, K, K],
+            [K, K, C, W, W, C, K, K],
+            [K, C, W, W, W, W, C, K],
+            [C, W, W, W, W, W, W, B],
+            [C, W, W, W, W, W, B, B],
+            [K, C, W, W, W, B, B, K],
+            [K, K, C, W, B, B, K, K],
+            [K, K, K, B, B, K, K, K],
+        ],
+        // Frame 1: Narrower (turning)
+        [
+            [K, K, K, C, C, K, K, K],
+            [K, K, K, W, W, K, K, K],
+            [K, K, C, W, W, C, K, K],
+            [K, C, W, W, W, W, B, K],
+            [K, C, W, W, W, B, B, K],
+            [K, K, C, W, B, B, K, K],
+            [K, K, K, B, B, K, K, K],
+            [K, K, K, B, K, K, K, K],
+        ],
+        // Frame 2: Edge-on (thin)
+        [
+            [K, K, K, K, C, K, K, K],
+            [K, K, K, K, W, K, K, K],
+            [K, K, K, C, W, C, K, K],
+            [K, K, K, W, W, W, K, K],
+            [K, K, K, W, W, B, K, K],
+            [K, K, K, C, B, K, K, K],
+            [K, K, K, K, B, K, K, K],
+            [K, K, K, K, K, K, K, K],
+        ],
+        // Frame 3: Narrower (mirror of frame 1)
+        [
+            [K, K, K, C, C, K, K, K],
+            [K, K, K, W, W, K, K, K],
+            [K, K, C, W, W, C, K, K],
+            [K, C, W, W, W, W, B, K],
+            [K, C, W, W, W, B, B, K],
+            [K, K, C, W, B, B, K, K],
+            [K, K, K, B, B, K, K, K],
+            [K, K, K, B, K, K, K, K],
+        ],
+    ];
+    
+    return frameMaps.map(map => {
+        const canvas = document.createElement('canvas');
+        canvas.width = TILE_SIZE;
+        canvas.height = TILE_SIZE;
+        const ctx = canvas.getContext('2d', { alpha: true });
+        ctx.fillStyle = K;
+        ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+        drawPixelMap(ctx, map);
+        return canvas;
+    });
+}
 
+/**
+ * Generate directional Rockford sprite (facing left or right).
+ */
+function generatePlayerSprite(direction) {
+    const W = C64.WHITE;
+    const K = C64.BLACK;
+    const B = C64.BLUE;
+    const Y = C64.YELLOW;
+    
+    let map;
+    if (direction === 'LEFT') {
+        map = [
+            [K, K, Y, Y, Y, Y, K, K],
+            [K, Y, W, W, W, W, Y, K],
+            [K, W, K, W, W, K, W, K],
+            [K, W, W, K, W, W, W, K],
+            [K, K, B, B, B, B, K, K],
+            [K, B, B, B, B, K, K, K],
+            [K, K, B, K, K, B, K, K],
+            [K, K, W, K, K, W, K, K],
+        ];
+    } else {
+        map = [
+            [K, K, Y, Y, Y, Y, K, K],
+            [K, Y, W, W, W, W, Y, K],
+            [K, W, K, W, W, K, W, K],
+            [K, W, W, W, K, W, W, K],
+            [K, K, B, B, B, B, K, K],
+            [K, K, K, B, B, B, B, K],
+            [K, K, B, K, K, B, K, K],
+            [K, K, W, K, K, W, K, K],
+        ];
+    }
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = TILE_SIZE;
+    canvas.height = TILE_SIZE;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    ctx.fillStyle = K;
+    ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    drawPixelMap(ctx, map);
+    return canvas;
+}
+
+/**
+ * Generate Rockford idle animation frames (blink + foot tap).
+ * In the original C64 BD, Rockford blinked and tapped his foot when idle.
+ * Frame 0: Normal
+ * Frame 1: Eyes closed (blink)
+ * Frame 2: Normal
+ * Frame 3: Foot tap (one foot shifted)
+ */
+function generatePlayerIdleFrames() {
+    const W = C64.WHITE;
+    const K = C64.BLACK;
+    const B = C64.BLUE;
+    const Y = C64.YELLOW;
+    
+    const frameMaps = [
+        // Frame 0: Normal (same as default player)
+        [
+            [K, K, Y, Y, Y, Y, K, K],
+            [K, Y, W, W, W, W, Y, K],
+            [K, W, K, W, W, K, W, K],
+            [K, W, W, W, W, W, W, K],
+            [K, K, B, B, B, B, K, K],
+            [K, B, B, B, B, B, B, K],
+            [K, K, B, K, K, B, K, K],
+            [K, K, W, K, K, W, K, K],
+        ],
+        // Frame 1: Blink (eyes closed)
+        [
+            [K, K, Y, Y, Y, Y, K, K],
+            [K, Y, W, W, W, W, Y, K],
+            [K, W, W, W, W, W, W, K],
+            [K, W, K, K, K, K, W, K],
+            [K, K, B, B, B, B, K, K],
+            [K, B, B, B, B, B, B, K],
+            [K, K, B, K, K, B, K, K],
+            [K, K, W, K, K, W, K, K],
+        ],
+        // Frame 2: Normal again
+        [
+            [K, K, Y, Y, Y, Y, K, K],
+            [K, Y, W, W, W, W, Y, K],
+            [K, W, K, W, W, K, W, K],
+            [K, W, W, W, W, W, W, K],
+            [K, K, B, B, B, B, K, K],
+            [K, B, B, B, B, B, B, K],
+            [K, K, B, K, K, B, K, K],
+            [K, K, W, K, K, W, K, K],
+        ],
+        // Frame 3: Foot tap (right foot shifted)
+        [
+            [K, K, Y, Y, Y, Y, K, K],
+            [K, Y, W, W, W, W, Y, K],
+            [K, W, K, W, W, K, W, K],
+            [K, W, W, W, W, W, W, K],
+            [K, K, B, B, B, B, K, K],
+            [K, B, B, B, B, B, B, K],
+            [K, K, B, K, K, B, K, K],
+            [K, W, K, K, K, K, W, K],
+        ],
+    ];
+    
+    return frameMaps.map(map => {
+        const canvas = document.createElement('canvas');
+        canvas.width = TILE_SIZE;
+        canvas.height = TILE_SIZE;
+        const ctx = canvas.getContext('2d', { alpha: true });
+        ctx.fillStyle = K;
+        ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+        drawPixelMap(ctx, map);
+        return canvas;
+    });
+}
+
+/**
+ * Generate explosion animation frames.
+ * In C64 BD, explosions showed a brief white flash / expanding pattern
+ * before turning into diamonds (or empty space).
+ * Frame 0: White flash
+ * Frame 1: Expanding debris
+ * Frame 2: Fading debris
+ */
+function generateExplosionFrames() {
+    const W = C64.WHITE;
+    const Y = C64.YELLOW;
+    const O = C64.ORANGE;
+    const R = C64.RED;
+    const K = C64.BLACK;
+    
+    const frameMaps = [
+        // Frame 0: Bright white flash
+        [
+            [K, K, W, W, W, W, K, K],
+            [K, W, W, W, W, W, W, K],
+            [W, W, W, W, W, W, W, W],
+            [W, W, W, W, W, W, W, W],
+            [W, W, W, W, W, W, W, W],
+            [W, W, W, W, W, W, W, W],
+            [K, W, W, W, W, W, W, K],
+            [K, K, W, W, W, W, K, K],
+        ],
+        // Frame 1: Yellow/orange expanding
+        [
+            [K, K, Y, K, K, Y, K, K],
+            [K, Y, O, Y, Y, O, Y, K],
+            [Y, O, R, O, O, R, O, Y],
+            [K, Y, O, Y, Y, O, Y, K],
+            [K, Y, O, Y, Y, O, Y, K],
+            [Y, O, R, O, O, R, O, Y],
+            [K, Y, O, Y, Y, O, Y, K],
+            [K, K, Y, K, K, Y, K, K],
+        ],
+        // Frame 2: Fading debris
+        [
+            [K, K, K, K, K, K, K, K],
+            [K, K, R, K, K, R, K, K],
+            [K, R, K, K, K, K, R, K],
+            [K, K, K, R, R, K, K, K],
+            [K, K, K, R, R, K, K, K],
+            [K, R, K, K, K, K, R, K],
+            [K, K, R, K, K, R, K, K],
+            [K, K, K, K, K, K, K, K],
+        ],
+    ];
+    
+    return frameMaps.map(map => {
+        const canvas = document.createElement('canvas');
+        canvas.width = TILE_SIZE;
+        canvas.height = TILE_SIZE;
+        const ctx = canvas.getContext('2d', { alpha: true });
+        ctx.fillStyle = K;
+        ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+        drawPixelMap(ctx, map);
+        return canvas;
+    });
+}

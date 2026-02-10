@@ -88,95 +88,6 @@ export class GamePhysics {
     }
     
     /**
-     * Check if an object at (x,y) can fall directly down
-     * @param {number} x - The x coordinate
-     * @param {number} y - The y coordinate
-     * @returns {boolean} - Whether the object can fall
-     */
-    canFall(x, y) {
-        // Check if there's empty space below
-        if (y + 1 < this.height && this.grid[y + 1][x] === ELEMENT_TYPES.EMPTY) {
-            return true;
-        }
-
-        // Check if the object can roll off an edge
-        if (y + 1 < this.height) {
-            const below = this.grid[y + 1][x];
-            if (below === ELEMENT_TYPES.BOULDER || below === ELEMENT_TYPES.DIAMOND) {
-                return this.canRoll(x, y);
-            }
-        }
-
-        return false;
-    }
-    
-    /**
-     * Check if an object at (x,y) can roll to the side
-     * @param {number} x - The x coordinate
-     * @param {number} y - The y coordinate
-     * @returns {boolean} - Whether the object rolled
-     */
-    canRoll(x, y) {
-        const element = this.grid[y][x];
-        
-        // Check if object is on top of another boulder/diamond, wall, or player
-        if (y + 1 >= this.height) return false;
-        
-        const elementBelow = this.grid[y + 1][x];
-        // Can roll off boulders, diamonds, walls, and player
-        if (elementBelow !== ELEMENT_TYPES.BOULDER && 
-            elementBelow !== ELEMENT_TYPES.DIAMOND && 
-            elementBelow !== ELEMENT_TYPES.WALL && 
-            elementBelow !== ELEMENT_TYPES.PLAYER) {
-            return false;
-        }
-        
-        // Try to roll right first
-        if (this.tryRoll(x, y, 1)) {
-            return true;
-        }
-        
-        // Then try to roll left
-        if (this.tryRoll(x, y, -1)) {
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Try to roll an object in a given direction
-     * @param {number} x - The x coordinate
-     * @param {number} y - The y coordinate
-     * @param {number} direction - Direction to roll (1 for right, -1 for left)
-     * @returns {boolean} - Whether the object rolled successfully
-     */
-    tryRoll(x, y, direction) {
-        const element = this.grid[y][x];
-        
-        // Check if we can roll in that direction
-        if (x + direction >= 0 && 
-            x + direction < this.width &&
-            this.grid[y][x + direction] === ELEMENT_TYPES.EMPTY &&
-            this.grid[y + 1][x + direction] === ELEMENT_TYPES.EMPTY) {
-            
-            // Move the object
-            this.grid[y][x + direction] = element;
-            this.grid[y][x] = ELEMENT_TYPES.EMPTY;
-            
-            // Track the last updated cell
-            this.lastUpdatedCell = { x: x + direction, y, type: 'roll' };
-            
-            // Add to falling objects for next update
-            this.fallingObjects.add(`${x+direction},${y}`);
-            
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
      * Check if a position contains a falling object
      * @param {number} x - The x coordinate
      * @param {number} y - The y coordinate
@@ -185,13 +96,7 @@ export class GamePhysics {
     isFallingAt(x, y) {
         return this.fallingObjects.has(`${x},${y}`);
     }
-      /**
-     * Handle player movement with pushing mechanics
-     * @param {number} playerX - Player's current x position
-     * @param {number} playerY - Player's current y position
-     * @param {string} direction - Direction to move
-     * @returns {Object} - Result of the move {success, newX, newY, collected, crushed, exit}
-     */
+    
     /**
      * Move the player in a direction
      * @param {number} playerX - Player's current x coordinate
@@ -208,7 +113,6 @@ export class GamePhysics {
 
         const dir = DIRECTIONS[direction];
         if (!dir) {
-            console.error(`Invalid direction: ${direction}`);
             return { success: false };
         }
 
