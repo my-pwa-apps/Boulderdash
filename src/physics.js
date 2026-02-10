@@ -66,10 +66,8 @@ export class GamePhysics {
                     physicsUpdated = true;
                 } else if (below === ELEMENT_TYPES.PLAYER) {
                     // Check if this object was falling - if so, crush the player!
-                    // Object at (x, y) was falling if it was at (x, y-1) last frame and fell to (x, y)
-                    // OR if it's currently marked as falling from being pushed/rolled
-                    const wasFalling = this.previouslyFalling.has(`${x},${y}`) || 
-                                       this.previouslyFalling.has(`${x},${y-1}`);
+                    // Object was falling if it was marked in fallingObjects last frame
+                    const wasFalling = this.previouslyFalling.has(`${x},${y}`);
                     if (wasFalling) {
                         // Falling object lands on player - crush them!
                         this.grid[y + 1][x] = element;

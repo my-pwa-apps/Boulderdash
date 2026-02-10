@@ -409,20 +409,10 @@ class Game {
         const cappedDelta = Math.min(deltaTime, 33);
         this.gameTime += cappedDelta / 16;
         
-        this.physicsAccumulator = (this.physicsAccumulator || 0) + cappedDelta;
-        const physicsStep = 50;
-        while (this.physicsAccumulator >= physicsStep) {
-            this.updatePhysics();
-            this.physicsAccumulator -= physicsStep;
-        }
+        // Movement rate limiting
+        this.moveTimer += cappedDelta;
         
-        this.enemyMoveCounter += cappedDelta;
-        if (this.enemyMoveCounter >= 400) {
-            this.updateEnemies();
-            this.enemyMoveCounter = 0;
-        }
-        
-        // AI control in demo mode
+        // Process player input FIRST (like original C64 BD - gives player time to escape)
         if (this.demoMode) {
             this.aiMoveCounter += cappedDelta;
             if (this.aiMoveCounter >= 200) {
@@ -441,6 +431,21 @@ class Game {
             }
             this.playerNextDirection = null;
             this.moveTimer = 0;
+        }
+        
+        // Physics runs AFTER player move (falling objects)
+        this.physicsAccumulator = (this.physicsAccumulator || 0) + cappedDelta;
+        const physicsStep = 50;
+        while (this.physicsAccumulator >= physicsStep) {
+            this.updatePhysics();
+            this.physicsAccumulator -= physicsStep;
+        }
+        
+        // Enemy movement
+        this.enemyMoveCounter += cappedDelta;
+        if (this.enemyMoveCounter >= 400) {
+            this.updateEnemies();
+            this.enemyMoveCounter = 0;
         }
         
         // Sync grid reference from physics (read-only, no clone needed)
@@ -481,9 +486,6 @@ class Game {
                 }
             }
         }
-        
-        // Movement rate limiting
-        this.moveTimer += cappedDelta;
         
         if (this.screenShake > 0) {
             this.screenShake -= cappedDelta / 20;
