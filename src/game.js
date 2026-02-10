@@ -33,9 +33,9 @@ class Game {
         // Explosion animation tracking {x, y, frame, timer}
         this.explosions = [];
         
-        // Movement rate limiting (C64 BD: Rockford moves ~6 tiles/sec)
-        this.moveTimer = 0;
-        this.moveInterval = 50; // ms between moves (matches physics rate, like original C64)
+        // Single game tick accumulator - player + physics in lockstep (like original C64 BD)
+        this.gameTickAccumulator = 0;
+        this.gameTickRate = 120; // ms per game tick (~8 tiles/sec, authentic C64 feel)
         this.backgroundPattern = this.createBackgroundPattern();
         this.scoreElement = document.getElementById('score');
         this.highScoreElement = document.getElementById('highScore');
@@ -68,7 +68,6 @@ class Game {
         this.exitPosition = null;
         this.animationFrameId = null;
         this.timerInterval = null;
-        this.physicsAccumulator = 0;
         this.lastUpdateTime = 0;
         this.sprites = generateAssets();
         this.sound = new SoundManager();
@@ -345,7 +344,7 @@ class Game {
         this.playerIdleTimer = 0;
         this.playerIdleFrame = 0;
         this.playerIsIdle = false;
-        this.moveTimer = 0;
+        this.gameTickAccumulator = 0;
         this._lastHUD = {}; // Reset HUD cache for new level
         
         // Set time limit from level data or use default
@@ -419,50 +418,42 @@ class Game {
         const cappedDelta = Math.min(deltaTime, 33);
         this.gameTime += cappedDelta / 16;
         
-        // Movement rate limiting
-        this.moveTimer += cappedDelta;
-        
-        // Process player input FIRST (like original C64 BD - gives player time to escape)
-        if (this.demoMode) {
-            this.aiMoveCounter += cappedDelta;
-            if (this.aiMoveCounter >= 200) {
-                const aiDirection = this.getAIMove();
-                if (aiDirection) {
-                    this.handlePlayerMove(aiDirection);
+        // Single game tick: player + physics + enemies in lockstep (like original C64 BD)
+        this.gameTickAccumulator += cappedDelta;
+        while (this.gameTickAccumulator >= this.gameTickRate) {
+            // 1. Player moves FIRST (gives time to escape falling objects)
+            if (this.demoMode) {
+                this.aiMoveCounter += this.gameTickRate;
+                if (this.aiMoveCounter >= 200) {
+                    const aiDirection = this.getAIMove();
+                    if (aiDirection) {
+                        this.handlePlayerMove(aiDirection);
+                    }
+                    this.aiMoveCounter = 0;
                 }
-                this.aiMoveCounter = 0;
+            } else if (this.playerNextDirection) {
+                if (this.spacePressed) {
+                    this.handlePlayerGrab(this.playerNextDirection);
+                } else {
+                    this.handlePlayerMove(this.playerNextDirection);
+                }
+                // Keep direction if key is still held, otherwise clear
+                if (!this.keysHeld.has(this.playerNextDirection)) {
+                    this.playerNextDirection = null;
+                }
             }
-        } else if (this.playerNextDirection && this.moveTimer >= this.moveInterval) {
-            // If space is pressed, grab item instead of moving
-            if (this.spacePressed) {
-                this.handlePlayerGrab(this.playerNextDirection);
-            } else {
-                this.handlePlayerMove(this.playerNextDirection);
-            }
-            this.moveTimer = 0;
-            // Keep direction if key is still held, otherwise clear
-            if (!this.keysHeld.has(this.playerNextDirection)) {
-                this.playerNextDirection = null;
-            }
-        }
-        
-        // Physics runs AFTER player move (falling objects)
-        // Call beginFrame once to save last frame's falling state
-        if (this.physics) {
-            this.physics.beginFrame();
-        }
-        this.physicsAccumulator = (this.physicsAccumulator || 0) + cappedDelta;
-        const physicsStep = 50;
-        while (this.physicsAccumulator >= physicsStep) {
+            
+            // 2. Physics runs AFTER player (exactly one step per tick)
             this.updatePhysics();
-            this.physicsAccumulator -= physicsStep;
-        }
-        
-        // Enemy movement
-        this.enemyMoveCounter += cappedDelta;
-        if (this.enemyMoveCounter >= 400) {
-            this.updateEnemies();
-            this.enemyMoveCounter = 0;
+            
+            // 3. Enemies
+            this.enemyMoveCounter += this.gameTickRate;
+            if (this.enemyMoveCounter >= 400) {
+                this.updateEnemies();
+                this.enemyMoveCounter = 0;
+            }
+            
+            this.gameTickAccumulator -= this.gameTickRate;
         }
         
         // Sync grid reference from physics (read-only, no clone needed)
@@ -529,6 +520,7 @@ class Game {
     
     updatePhysics() {
         if (!this.physics) return;
+        this.physics.beginFrame();
         this.physics.update();
         if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
             this.handlePlayerDeath('Crushed!');
