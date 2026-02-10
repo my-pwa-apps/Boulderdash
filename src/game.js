@@ -59,6 +59,7 @@ class Game {
         this.exitOpen = false;
         this.playerDirection = 'RIGHT';
         this.playerNextDirection = null;
+        this.keysHeld = new Set(); // Track currently held direction keys
         this.spacePressed = false;
         this.enemies = [];
         this.enemyMoveCounter = 0;
@@ -178,6 +179,7 @@ class Game {
                 e.preventDefault();
                 // Only queue direction if game is actively running
                 if (this.isRunning && !this.gameOver && !this.levelComplete) {
+                    this.keysHeld.add(direction);
                     this.playerNextDirection = direction;
                 }
             }
@@ -188,6 +190,14 @@ class Game {
             if (e.key === ' ' || e.code === 'Space') {
                 e.preventDefault();
                 this.spacePressed = false;
+            }
+            const direction = KEY_MAPPINGS[e.key];
+            if (direction) {
+                this.keysHeld.delete(direction);
+                // If released key was the current direction, pick another held key or clear
+                if (this.playerNextDirection === direction) {
+                    this.playerNextDirection = this.keysHeld.size > 0 ? [...this.keysHeld].pop() : null;
+                }
             }
         });
         
@@ -429,8 +439,11 @@ class Game {
             } else {
                 this.handlePlayerMove(this.playerNextDirection);
             }
-            this.playerNextDirection = null;
             this.moveTimer = 0;
+            // Keep direction if key is still held, otherwise clear
+            if (!this.keysHeld.has(this.playerNextDirection)) {
+                this.playerNextDirection = null;
+            }
         }
         
         // Physics runs AFTER player move (falling objects)
