@@ -4,7 +4,7 @@ import { GamePhysics } from './physics.js';
 import { SoundManager } from './sound.js';
 import { TouchControls } from './touch-controls.js';
 import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS } from './constants.js';
-import { formatTime } from './utils.js';
+import { formatTime, debounce } from './utils.js';
 import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js';
 
 class Game {
@@ -54,6 +54,8 @@ class Game {
         this.lastUpdateTime = 0;
         this.sprites = generateAssets();
         this.sound = new SoundManager();
+        this._debouncedResize = debounce(() => this.handleResize(), 100);
+        this._lastHUD = {}; // Cache for HUD values to avoid redundant DOM writes
         this.createMuteButton();
         this.setupEventListeners();
         this.setupButtonListeners();
@@ -80,8 +82,9 @@ class Game {
         // Exit visual effects
         this.screenFlash = 0;
         this.exitSparkleTimer = 0;
+        this.titleScreenFrameId = null;
         
-        requestAnimationFrame(() => this.drawTitleScreen());
+        this.drawTitleScreen();
     }
     
     createBackgroundPattern() {
@@ -110,7 +113,7 @@ class Game {
     createMuteButton() {
         this.muteButton = document.createElement('button');
         this.muteButton.id = 'muteButton';
-        this.muteButton.textContent = '';
+        this.muteButton.textContent = '🔊';
         this.muteButton.title = 'Mute/Unmute Sound';
         this.muteButton.style.position = 'absolute';
         this.muteButton.style.top = '10px';
@@ -122,9 +125,7 @@ class Game {
             this.muteButton.textContent = muted ? '🔇' : '🔊';
         });
         
-        // Initialize debug display (keep hidden for production)
-        this.debugDisplay = document.getElementById('debugDisplay');
-        // Uncomment to show debug info: this.debugDisplay.classList.remove('hidden');
+
     }
     
     setupButtonListeners() {
@@ -191,13 +192,7 @@ class Game {
             }
         });
         
-        window.addEventListener('keydown', (e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 's', 'S', 'a', 'A', 'd', 'D', ' '].includes(e.key)) {
-                e.preventDefault();
-            }
-        });
-        
-        window.addEventListener('resize', () => this.handleResize());
+        window.addEventListener('resize', () => this._debouncedResize());
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && this.isRunning && !this.gameOver) {
                 this.pauseGame();
@@ -244,6 +239,11 @@ class Game {
     
     startGame(isDemoMode = false) {
         this.cancelDemoTimeout();
+        // Cancel title screen animation
+        if (this.titleScreenFrameId) {
+            cancelAnimationFrame(this.titleScreenFrameId);
+            this.titleScreenFrameId = null;
+        }
         this.demoMode = isDemoMode;
         this.level = 1;
         this.score = 0;
@@ -330,6 +330,7 @@ class Game {
         this.particles = [];
         this.playerAnimationFrame = 0;
         this.playerAnimationCounter = 0;
+        this._lastHUD = {}; // Reset HUD cache for new level
         
         // Set time limit from level data or use default
         this.timeRemaining = levelData.timeLimit || (GAME_SETTINGS.INITIAL_TIME + (levelNumber * 30));
@@ -347,7 +348,6 @@ class Game {
             this.highScore = scores.length > 0 ? scores[0].score : 0;
             this.updateHighScoreDisplay();
         } catch (error) {
-            console.error('Error loading high score:', error);
             this.highScore = 0;
         }
     }
@@ -359,13 +359,36 @@ class Game {
     }
     
     updateHUD() {
-        this.scoreElement.textContent = `Score: ${this.score}`;
-        this.updateHighScoreDisplay();
-        this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
-        this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
-        const caveName = this.levelName ? ` - ${this.levelName}` : '';
-        this.levelElement.textContent = `Cave ${String.fromCharCode(64 + this.level)}${caveName}`;
-        this.timeElement.style.color = '#ffcc00';
+        // Only update DOM elements whose values have changed
+        const h = this._lastHUD;
+        
+        if (h.score !== this.score) {
+            h.score = this.score;
+            this.scoreElement.textContent = `Score: ${this.score}`;
+        }
+        
+        if (h.highScore !== this.highScore) {
+            h.highScore = this.highScore;
+            this.updateHighScoreDisplay();
+        }
+        
+        if (h.diamonds !== this.diamondsCollected || h.required !== this.requiredDiamonds) {
+            h.diamonds = this.diamondsCollected;
+            h.required = this.requiredDiamonds;
+            this.diamondsElement.textContent = `Diamonds: ${this.diamondsCollected}/${this.requiredDiamonds}`;
+        }
+        
+        if (h.time !== this.timeRemaining) {
+            h.time = this.timeRemaining;
+            this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
+            this.timeElement.style.color = '#ffcc00';
+        }
+        
+        if (h.level !== this.level) {
+            h.level = this.level;
+            const caveName = this.levelName ? ` - ${this.levelName}` : '';
+            this.levelElement.textContent = `Cave ${String.fromCharCode(64 + this.level)}${caveName}`;
+        }
     }
     
     gameLoop() {
@@ -410,9 +433,9 @@ class Game {
             this.playerNextDirection = null;
         }
         
-        // Sync grid from physics after all updates
+        // Sync grid reference from physics (read-only, no clone needed)
         if (this.physics) {
-            this.grid = this.physics.getGrid();
+            this.grid = this.physics.getGridRef();
         }
         
         this.playerAnimationCounter += cappedDelta;
@@ -504,12 +527,10 @@ class Game {
             this.aiMemory.totalStuckCount++;
             
             if (this.aiMemory.totalStuckCount > 15) {
-                console.log('AI permanently stuck - ending demo mode');
-                this.stopDemo();
+                this.exitDemoMode();
                 return null;
             }
             
-            console.log(`AI stuck (${this.aiMemory.totalStuckCount}/15) - forcing smart exploration`);
             this.aiMemory.stuckCounter = 0;
             
             // Try risky BFS first - allows moves that might be dangerous but gets us unstuck
@@ -880,9 +901,12 @@ class Game {
         
         const crushedEnemies = this.physics.checkEnemiesCrushed(this.enemies);
         for (const idx of crushedEnemies.reverse()) {
-            this.createCrashAnimation(this.enemies[idx].x, this.enemies[idx].y);
+            const enemy = this.enemies[idx];
+            // Classic Boulder Dash: enemies explode into 3x3 diamonds
+            const newDiamonds = this.physics.explodeEnemy(enemy.x, enemy.y);
+            this.createCrashAnimation(enemy.x, enemy.y);
             this.sound.play('crush');
-            this.score += 100;
+            this.score += 100 + (newDiamonds * GAME_SETTINGS.DIAMOND_VALUE);
             this.enemies.splice(idx, 1);
         }
     }
@@ -939,22 +963,7 @@ class Game {
     }
     
     async showHighScoreMessage() {
-        try {
-            const scores = await getHighScores(10);
-            const currentRank = scores.findIndex(s => s.timestamp === scores[scores.length - 1]?.timestamp) + 1;
-            
-            if (currentRank > 0 && currentRank <= 10) {
-                console.log(`🏆 New High Score! Rank #${currentRank} with ${this.score} points`);
-            }
-            
-            // Log top 5 to console
-            console.log('🏆 Top 5 High Scores:');
-            scores.slice(0, 5).forEach((s, i) => {
-                console.log(`${i + 1}. Level ${s.level} - ${s.score} points - ${new Date(s.timestamp).toLocaleDateString()}`);
-            });
-        } catch (error) {
-            console.error('Error displaying high scores:', error);
-        }
+        // High score tracking handled silently
     }
     
     nextLevel() {
@@ -1072,14 +1081,20 @@ class Game {
                         const posX = x * TILE_SIZE;
                         const posY = y * TILE_SIZE;
                         
-                        this.ctx.strokeStyle = `rgba(0, 255, 0, ${pulse})`;
+                        // Outer glow (layered strokes instead of expensive shadowBlur)
+                        this.ctx.globalAlpha = pulse * 0.15;
+                        this.ctx.strokeStyle = '#00ff00';
+                        this.ctx.lineWidth = 6;
+                        this.ctx.strokeRect(posX, posY, TILE_SIZE, TILE_SIZE);
+                        
+                        this.ctx.globalAlpha = pulse * 0.4;
                         this.ctx.lineWidth = 3;
                         this.ctx.strokeRect(posX + 2, posY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
                         
-                        this.ctx.shadowColor = '#00ff00';
-                        this.ctx.shadowBlur = 15 * pulse;
-                        this.ctx.strokeRect(posX + 2, posY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-                        this.ctx.shadowBlur = 0;
+                        this.ctx.globalAlpha = pulse;
+                        this.ctx.lineWidth = 1;
+                        this.ctx.strokeRect(posX + 3, posY + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+                        this.ctx.globalAlpha = 1;
                     }
                 }
             }
@@ -1147,25 +1162,25 @@ class Game {
         this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
         this.ctx.fill();
         
-        // Border glow
+        // Border glow (layered for glow effect without shadowBlur)
         this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 3;
-        this.ctx.shadowColor = color;
-        this.ctx.shadowBlur = 15;
+        this.ctx.globalAlpha = 0.3;
+        this.ctx.lineWidth = 7;
         this.ctx.beginPath();
         this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
         this.ctx.stroke();
-        this.ctx.shadowBlur = 0;
+        this.ctx.globalAlpha = 1;
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
+        this.ctx.stroke();
         
-        // Title with glow
+        // Title
         this.ctx.fillStyle = color;
         this.ctx.font = 'bold 28px "Press Start 2P", monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.shadowColor = color;
-        this.ctx.shadowBlur = 10;
         this.ctx.fillText(title, centerX, centerY - 20);
-        this.ctx.shadowBlur = 0;
         
         // Subtitle
         this.ctx.fillStyle = '#cccccc';
@@ -1201,7 +1216,7 @@ class Game {
         this.startButton.classList.remove('hidden');
         this.restartButton.classList.add('hidden');
         this.startDemoTimeout();
-        requestAnimationFrame(() => this.drawTitleScreen());
+        this.drawTitleScreen();
     }
     
     drawTitleScreen() {
@@ -1244,31 +1259,27 @@ class Game {
         this.ctx.fillStyle = '#ff00ff';
         this.ctx.fillText('BOULDER DASH', centerX + 4, centerY + 4);
         
-        // Main text with glow
+        // Main text (layered text shadow instead of shadowBlur)
         const glowIntensity = Math.sin(time * 3) * 0.5 + 0.5;
-        this.ctx.shadowColor = '#ffff00';
-        this.ctx.shadowBlur = 20 + glowIntensity * 20;
+        this.ctx.globalAlpha = 0.3 + glowIntensity * 0.2;
+        this.ctx.fillStyle = '#ffff00';
+        this.ctx.fillText('BOULDER DASH', centerX + 1, centerY + 1);
+        this.ctx.fillText('BOULDER DASH', centerX - 1, centerY - 1);
+        this.ctx.globalAlpha = 1;
         this.ctx.fillStyle = '#ffff00';
         this.ctx.fillText('BOULDER DASH', centerX, centerY);
-        this.ctx.shadowBlur = 0;
         
-        // Subtitle with typewriter effect
+        // Subtitle
         this.ctx.font = '24px Courier New';
         this.ctx.fillStyle = '#00ffff';
-        this.ctx.shadowColor = '#00ffff';
-        this.ctx.shadowBlur = 10;
         this.ctx.fillText('★ COLLECT DIAMONDS AND ESCAPE! ★', centerX, centerY + 80);
-        this.ctx.shadowBlur = 0;
         
         // Blinking "Press Start" text
         const blink = Math.floor(time * 2) % 2;
         if (blink) {
             this.ctx.font = 'bold 28px Courier New';
             this.ctx.fillStyle = '#ff00ff';
-            this.ctx.shadowColor = '#ff00ff';
-            this.ctx.shadowBlur = 15;
             this.ctx.fillText('▶ PRESS START GAME ◀', centerX, centerY + 140);
-            this.ctx.shadowBlur = 0;
         }
         
         // Copyright/credit text
@@ -1281,9 +1292,9 @@ class Game {
         this.ctx.lineWidth = 3;
         this.ctx.strokeRect(10, 10, this.canvas.width - 20, this.canvas.height - 20);
         
-        // Request next frame for animation
+        // Request next frame for animation (tracked to prevent leak)
         if (!this.isRunning) {
-            requestAnimationFrame(() => this.drawTitleScreen());
+            this.titleScreenFrameId = requestAnimationFrame(() => this.drawTitleScreen());
         }
     }
 }

@@ -496,7 +496,7 @@ export function parsePattern(pattern, width, height) {
                     break;
                 case 'F':
                     cell = ELEMENT_TYPES.ENEMY;
-                    enemies.push({ x, y });
+                    enemies.push({ x, y, direction: 'DOWN' });
                     break;
                 case 'M':
                     cell = ELEMENT_TYPES.MAGIC_WALL;

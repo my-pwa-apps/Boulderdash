@@ -36,7 +36,7 @@ export const GAME_SETTINGS = {
     INITIAL_TIME: 180,              // 3 minutes initial time
     ENEMY_SPEED: 0.4,               // Balanced enemy speed
     BOULDER_FALL_SPEED: 4,          // Natural falling speed
-    LEVEL_COUNT: 10                 // Total levels
+    LEVEL_COUNT: 16                // Total classic levels
 };
 
 // Direction constants

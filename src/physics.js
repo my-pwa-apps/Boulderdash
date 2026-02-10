@@ -22,6 +22,14 @@ export class GamePhysics {
     }
     
     /**
+     * Get a direct reference to the physics grid (no clone, read-only use)
+     * @returns {Array<Array<number>>} - The current grid by reference
+     */
+    getGridRef() {
+        return this.grid;
+    }
+    
+    /**
      * Update the physics state of the game (optimized)
      * @returns {boolean} - Whether any physics updates occurred
      */
@@ -193,11 +201,8 @@ export class GamePhysics {
      * @returns {Object} - Object with success, new position, and collected flags
      */
     movePlayer(playerX, playerY, direction, exitOpen = false) {
-        console.log(`Moving player from ${playerX}, ${playerY} in direction ${direction}`);
-        
         // Validate input coordinates
         if (!isInBounds(playerX, playerY, this.width, this.height)) {
-            console.error(`Invalid player position: ${playerX}, ${playerY}`);
             return { success: false };
         }
 
@@ -212,7 +217,6 @@ export class GamePhysics {
 
         // Check if the move is valid
         if (!isInBounds(newX, newY, this.width, this.height)) {
-            console.log(`Cannot move: out of bounds`);
             return { success: false };
         }
 
@@ -265,7 +269,6 @@ export class GamePhysics {
                 break;
 
             case ELEMENT_TYPES.EXIT:
-                // Only allow entering exit if it's open (enough diamonds collected)
                 if (exitOpen) {
                     this.grid[newY][newX] = ELEMENT_TYPES.PLAYER;
                     this.grid[playerY][playerX] = ELEMENT_TYPES.EMPTY;
@@ -273,10 +276,6 @@ export class GamePhysics {
                     result.newX = newX;
                     result.newY = newY;
                     result.exit = true;
-                } else {
-                    // Exit is blocked - cannot enter yet
-                    console.log('Exit is not open yet - collect more diamonds!');
-                    result.success = false;
                 }
                 break;
 
@@ -297,17 +296,13 @@ export class GamePhysics {
      * @returns {Object} - Result with collected flag
      */
     grabItem(playerX, playerY, direction) {
-        console.log(`Player grabbing in direction ${direction} from ${playerX}, ${playerY}`);
-        
         // Validate input coordinates
         if (!isInBounds(playerX, playerY, this.width, this.height)) {
-            console.error(`Invalid player position: ${playerX}, ${playerY}`);
             return { collected: false };
         }
 
         const dir = DIRECTIONS[direction];
         if (!dir) {
-            console.error(`Invalid direction: ${direction}`);
             return { collected: false };
         }
 
@@ -316,7 +311,6 @@ export class GamePhysics {
 
         // Check if the target is valid
         if (!isInBounds(targetX, targetY, this.width, this.height)) {
-            console.log(`Cannot grab: out of bounds`);
             return { collected: false };
         }
 
@@ -332,7 +326,6 @@ export class GamePhysics {
             // Remove the item without moving player
             this.grid[targetY][targetX] = ELEMENT_TYPES.EMPTY;
             result.collected = (targetElement === ELEMENT_TYPES.DIAMOND);
-            console.log(`Grabbed ${targetElement === ELEMENT_TYPES.DIAMOND ? 'diamond' : 'dirt'}`);
         }
 
         return result;
@@ -423,83 +416,55 @@ export class GamePhysics {
     }
     
     /**
-     * Move enemies toward the player
-     * @param {Array<{x: number, y: number}>} enemies - Array of enemy positions
+     * Classic Boulder Dash wall-following enemy movement.
+     * Fireflies follow the left wall: try left, try straight, try right, reverse.
+     * Enemies can only move through EMPTY spaces or onto the PLAYER.
+     * @param {Array<Object>} enemies - Array of enemy objects {x, y, direction}
      * @param {number} playerX - Player's x coordinate
      * @param {number} playerY - Player's y coordinate
-     * @returns {Array<{x: number, y: number}>} - Updated enemy positions
+     * @returns {Array<Object>} - Updated enemy positions with directions
      */
     moveEnemies(enemies, playerX, playerY) {
         const updatedEnemies = [];
         
+        // Direction turn tables for left-wall following
+        const turnLeft = { UP: 'LEFT', LEFT: 'DOWN', DOWN: 'RIGHT', RIGHT: 'UP' };
+        const turnRight = { UP: 'RIGHT', RIGHT: 'DOWN', DOWN: 'LEFT', LEFT: 'UP' };
+        const reverse = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
+        const dirDelta = { UP: { dx: 0, dy: -1 }, DOWN: { dx: 0, dy: 1 }, LEFT: { dx: -1, dy: 0 }, RIGHT: { dx: 1, dy: 0 } };
+        
         for (const enemy of enemies) {
-            // 20% chance enemy doesn't move
-            if (Math.random() < 0.2) {
-                updatedEnemies.push({ x: enemy.x, y: enemy.y });
-                continue;
-            }
+            // Ensure enemy has a direction (backwards compat)
+            if (!enemy.direction) enemy.direction = 'DOWN';
             
-            // Determine best direction to move toward player
-            const directions = [];
-            
-            // Add horizontal direction
-            if (playerX < enemy.x) {
-                directions.push({ dx: -1, dy: 0 });
-            } else if (playerX > enemy.x) {
-                directions.push({ dx: 1, dy: 0 });
-            }
-            
-            // Add vertical direction
-            if (playerY < enemy.y) {
-                directions.push({ dx: 0, dy: -1 });
-            } else if (playerY > enemy.y) {
-                directions.push({ dx: 0, dy: 1 });
-            }
-            
-            // Add diagonal directions for smarter movement
-            if (playerX < enemy.x && playerY < enemy.y) {
-                directions.push({ dx: -1, dy: -1 }); // Up-left
-            } else if (playerX > enemy.x && playerY < enemy.y) {
-                directions.push({ dx: 1, dy: -1 });  // Up-right
-            } else if (playerX < enemy.x && playerY > enemy.y) {
-                directions.push({ dx: -1, dy: 1 });  // Down-left
-            } else if (playerX > enemy.x && playerY > enemy.y) {
-                directions.push({ dx: 1, dy: 1 });   // Down-right
-            }
-            
-            // Add random direction for more unpredictable movement
-            const randomDirs = [
-                { dx: -1, dy: 0 },
-                { dx: 1, dy: 0 },
-                { dx: 0, dy: -1 },
-                { dx: 0, dy: 1 }
-            ];
-            directions.push(randomDirs[Math.floor(Math.random() * randomDirs.length)]);
-            
-            // Shuffle for some randomness
             let moved = false;
-            directions.sort(() => Math.random() - 0.5);
+            let newDir = enemy.direction;
             
-            // Try each direction
-            for (const dir of directions) {
-                const newX = enemy.x + dir.dx;
-                const newY = enemy.y + dir.dy;
+            // Classic wall-following: try left, straight, right, reverse
+            const tryOrder = [
+                turnLeft[enemy.direction],
+                enemy.direction,
+                turnRight[enemy.direction],
+                reverse[enemy.direction]
+            ];
+            
+            for (const dir of tryOrder) {
+                const delta = dirDelta[dir];
+                const newX = enemy.x + delta.dx;
+                const newY = enemy.y + delta.dy;
                 
-                // Check if valid move - enemies can only move through EMPTY spaces or onto the PLAYER
-                // They CANNOT dig through dirt like in original Boulder Dash
                 if (isInBounds(newX, newY, this.width, this.height) &&
                     (this.grid[newY][newX] === ELEMENT_TYPES.EMPTY || 
                      this.grid[newY][newX] === ELEMENT_TYPES.PLAYER)) {
                     
-                    // Check if moving onto player
+                    newDir = dir;
+                    
                     if (this.grid[newY][newX] === ELEMENT_TYPES.PLAYER) {
-                        // Enemy catches player - just update position
-                        updatedEnemies.push({ x: newX, y: newY });
+                        updatedEnemies.push({ x: newX, y: newY, direction: newDir });
                     } else {
-                        // Move enemy
                         this.grid[newY][newX] = ELEMENT_TYPES.ENEMY;
                         this.grid[enemy.y][enemy.x] = ELEMENT_TYPES.EMPTY;
-                        updatedEnemies.push({ x: newX, y: newY });
+                        updatedEnemies.push({ x: newX, y: newY, direction: newDir });
                     }
                     
                     moved = true;
@@ -507,9 +472,8 @@ export class GamePhysics {
                 }
             }
             
-            // If couldn't move, stay in place
             if (!moved) {
-                updatedEnemies.push({ x: enemy.x, y: enemy.y });
+                updatedEnemies.push({ x: enemy.x, y: enemy.y, direction: enemy.direction });
             }
         }
         
@@ -528,8 +492,9 @@ export class GamePhysics {
     }
     
     /**
-     * Check if a boulder or diamond would crush an enemy
-     * @param {Array<{x: number, y: number}>} enemies - Array of enemy positions
+     * Check if a boulder or diamond would crush an enemy.
+     * In classic Boulder Dash, crushed enemies explode into diamonds (3x3 area).
+     * @param {Array<Object>} enemies - Array of enemy positions
      * @returns {Array<number>} - Indices of enemies that are crushed
      */
     checkEnemiesCrushed(enemies) {
@@ -546,9 +511,49 @@ export class GamePhysics {
                     crushedIndices.push(i);
                 }
             }
+            
+            // Also check if something landed ON the enemy position
+            if (this.grid[enemy.y][enemy.x] === ELEMENT_TYPES.BOULDER ||
+                this.grid[enemy.y][enemy.x] === ELEMENT_TYPES.DIAMOND) {
+                if (!crushedIndices.includes(i)) {
+                    crushedIndices.push(i);
+                }
+            }
         }
         
         return crushedIndices;
+    }
+    
+    /**
+     * Explode an enemy into diamonds in a 3x3 area (classic Boulder Dash behavior).
+     * @param {number} x - Enemy x position
+     * @param {number} y - Enemy y position
+     * @returns {number} - Number of diamonds created
+     */
+    explodeEnemy(x, y) {
+        let diamondsCreated = 0;
+        
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const nx = x + dx;
+                const ny = y + dy;
+                
+                if (!isInBounds(nx, ny, this.width, this.height)) continue;
+                
+                const cell = this.grid[ny][nx];
+                // Replace dirt, empty, boulders, and the enemy itself with diamonds
+                // Don't replace walls, exit, player, or other enemies
+                if (cell === ELEMENT_TYPES.DIRT || 
+                    cell === ELEMENT_TYPES.EMPTY || 
+                    cell === ELEMENT_TYPES.BOULDER ||
+                    cell === ELEMENT_TYPES.ENEMY) {
+                    this.grid[ny][nx] = ELEMENT_TYPES.DIAMOND;
+                    diamondsCreated++;
+                }
+            }
+        }
+        
+        return diamondsCreated;
     }
     
     /**

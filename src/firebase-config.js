@@ -21,14 +21,11 @@ export function initializeFirebase() {
       firebaseApp = firebase.initializeApp(firebaseConfig);
       database = firebase.database();
       
-      console.log('Firebase Realtime Database initialized successfully');
       return true;
     } else {
-      console.warn('Firebase SDK not loaded');
       return false;
     }
   } catch (error) {
-    console.error('Error initializing Firebase:', error);
     return false;
   }
 }
@@ -36,7 +33,6 @@ export function initializeFirebase() {
 // Save high score to Firebase
 export async function saveHighScore(playerName, score, level) {
   if (!database) {
-    console.warn('Firebase database not initialized');
     return false;
   }
   
@@ -49,37 +45,8 @@ export async function saveHighScore(playerName, score, level) {
       level: level,
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
-    console.log('High score saved successfully');
     return true;
   } catch (error) {
-    console.error('Error saving high score:', error);
-    console.error('⚠️ DATABASE PERMISSIONS ERROR - See instructions below:');
-    console.log(`
-📋 HOW TO FIX FIREBASE DATABASE PERMISSIONS:
-
-1. Go to: https://console.firebase.google.com/project/boulderdash-ae84b/database/boulderdash-ae84b-default-rtdb/rules
-
-2. Replace the rules with:
-   {
-     "rules": {
-       "highscores": {
-         ".read": true,
-         ".write": true
-       },
-       "game_events": {
-         ".read": false,
-         ".write": true
-       }
-     }
-   }
-
-3. Click "Publish" to apply the changes
-
-This allows:
-- Anyone can read/write high scores
-- Anyone can write game events (for analytics)
-- Game events cannot be read (privacy)
-    `);
     return false;
   }
 }
@@ -87,7 +54,6 @@ This allows:
 // Get top high scores from Firebase
 export async function getHighScores(limit = 10) {
   if (!database) {
-    console.warn('Firebase database not initialized');
     return [];
   }
   
@@ -109,7 +75,6 @@ export async function getHighScores(limit = 10) {
     // Sort descending by score
     return scores.reverse();
   } catch (error) {
-    console.error('Error fetching high scores:', error);
     return [];
   }
 }
@@ -126,9 +91,7 @@ export async function logGameEvent(eventName, eventParams = {}) {
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
   } catch (error) {
-    // Silently fail if Firebase permissions not set up
-    // This is expected and doesn't affect gameplay
-    console.log('Firebase logging disabled (no write permissions)');
+    // Silently fail - expected when Firebase permissions not configured
   }
 }
 

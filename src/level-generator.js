@@ -84,13 +84,13 @@ function generateProceduralLevel(level) {
             GRID_WIDTH - 2, GRID_HEIGHT - 2);
     }
     
-    // Add more enemies
+    // Add more enemies with direction for wall-following
     const allEnemies = [...parsed.enemies];
     for (let i = parsed.enemies.length; i < enemyCount; i++) {
         const enemyPos = placeElement(grid, ELEMENT_TYPES.ENEMY, 
             8, 8, GRID_WIDTH - 3, GRID_HEIGHT - 3);
         if (enemyPos) {
-            allEnemies.push(enemyPos);
+            allEnemies.push({ ...enemyPos, direction: 'DOWN' });
         }
     }
     

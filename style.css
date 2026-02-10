@@ -20,11 +20,6 @@ body {
     image-rendering: pixelated;
 }
 
-@keyframes starfield {
-    0% { background-position: 0 0, 40px 60px, 130px 270px; }
-    100% { background-position: 550px 550px, 390px 410px, 380px 520px; }
-}
-
 .game-container {
     display: flex;
     flex-direction: column;
