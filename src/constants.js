@@ -16,17 +16,37 @@ export const ELEMENT_TYPES = {
     MAGIC_WALL: 8
 };
 
-// Colors - Modern retro arcade palette with better contrast
+// C64 color palette - authentic Commodore 64 Boulder Dash colors
+export const C64 = {
+    BLACK:      '#000000',
+    WHITE:      '#FFFFFF',
+    RED:        '#880000',
+    CYAN:       '#AAFFEE',
+    PURPLE:     '#CC44CC',
+    GREEN:      '#00CC55',
+    BLUE:       '#0000AA',
+    YELLOW:     '#EEEE77',
+    ORANGE:     '#DD8855',
+    BROWN:      '#664400',
+    LIGHT_RED:  '#FF7777',
+    DARK_GREY:  '#333333',
+    GREY:       '#777777',
+    LIGHT_GREEN:'#AAFF66',
+    LIGHT_BLUE: '#0088FF',
+    LIGHT_GREY: '#BBBBBB'
+};
+
+// Colors mapped to game elements using authentic C64 BD palette
 export const COLORS = {
-    EMPTY: '#0a0a12',       // Deep space dark (not pure black)
-    WALL: '#6b4878',        // Muted purple walls
-    DIRT: '#8B6914',        // Richer golden brown
-    BOULDER: '#7a7a8a',     // Cool gray with slight blue
-    DIAMOND: '#00E5FF',     // Electric cyan diamond
-    EXIT: '#FF00FF',        // Hot magenta portal
-    PLAYER: '#FFD700',      // Gold player (more visible)
-    ENEMY: '#FF3344',       // Slightly orange-red enemy
-    MAGIC_WALL: '#39FF14'   // Neon green magic wall
+    EMPTY: C64.BLACK,           // Pure black background
+    WALL: C64.LIGHT_BLUE,       // Steel wall - light blue (C64 Cave A)
+    DIRT: C64.BROWN,            // Brown dirt
+    BOULDER: C64.LIGHT_GREY,    // Grey boulder
+    DIAMOND: C64.WHITE,         // White/cyan diamond
+    EXIT: C64.GREY,             // Steel door (flashes green when open)
+    PLAYER: C64.WHITE,          // Rockford - white
+    ENEMY: C64.RED,             // Firefly - red
+    MAGIC_WALL: C64.PURPLE      // Magic wall - purple shimmer
 };
 
 // Game settings balanced for classic Boulder Dash feel

@@ -1,34 +1,27 @@
-// Sound effects for Boulderdash
-// Uses procedural audio generation since all assets should be generated from code
+// C64 SID-chip style sound effects for Boulder Dash
+// Uses square wave, triangle wave, and noise to match the iconic C64 audio
 
 /**
- * Sound manager for the game
+ * Sound manager emulating the C64 SID chip characteristics
  */
 export class SoundManager {
     constructor() {
-        // Initialize audio context
         this.audioContext = null;
         this.sounds = {};
         this.muted = false;
         
-        // Try to initialize audio context
         try {
-            // Modern audio context
             window.AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
         } catch (e) {
-            console.warn('Web Audio API is not supported in this browser');
+            // Web Audio not supported
         }
         
-        // Generate all sound effects
         if (this.audioContext) {
             this.generateSounds();
         }
     }
     
-    /**
-     * Generate all required sound effects
-     */
     generateSounds() {
         this.sounds.collect = this.generateCollectSound();
         this.sounds.fall = this.generateFallSound();
@@ -39,149 +32,176 @@ export class SoundManager {
         this.sounds.exit = this.generateExitOpenSound();
     }
     
-    /**
-     * Play a sound effect
-     * @param {string} soundName - The name of the sound to play
-     */
     play(soundName) {
         if (this.muted || !this.audioContext || !this.sounds[soundName]) return;
         
-        // Clone the buffer for playback
+        // Resume context if suspended (browser autoplay policy)
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+        
         const source = this.audioContext.createBufferSource();
         source.buffer = this.sounds[soundName];
         source.connect(this.audioContext.destination);
         source.start();
     }
     
-    /**
-     * Toggle mute state
-     */
     toggleMute() {
         this.muted = !this.muted;
         return this.muted;
     }
     
     /**
-     * Generate sound for collecting a diamond
-     * @returns {AudioBuffer} - The generated sound
+     * Generate a square wave sample (C64 SID pulse wave)
+     * @param {number} phase - Current phase (0-1)
+     * @param {number} duty - Pulse width duty cycle (0-1), 0.5 = standard square
+     * @returns {number} Sample value (-1 to 1)
+     */
+    squareWave(phase, duty = 0.5) {
+        return (phase % 1) < duty ? 1 : -1;
+    }
+    
+    /**
+     * Generate a triangle wave sample (C64 SID triangle)
+     * @param {number} phase - Current phase (0-1)
+     * @returns {number} Sample value (-1 to 1)
+     */
+    triangleWave(phase) {
+        const p = phase % 1;
+        return p < 0.5 ? (4 * p - 1) : (3 - 4 * p);
+    }
+    
+    /**
+     * C64-style noise (LFSR-based pseudo-random)
+     * @returns {number} Sample value (-1 to 1)
+     */
+    noise() {
+        return Math.random() * 2 - 1;
+    }
+    
+    /**
+     * Diamond collect - iconic C64 BD ascending arpeggio.
+     * Quick three-note rising chirp using square wave.
      */
     generateCollectSound() {
+        const duration = 0.15;
+        const sampleRate = this.audioContext.sampleRate;
+        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+        const data = buffer.getChannelData(0);
+        
+        // Three rapid ascending notes (C64 SID square wave arpeggio)
+        const notes = [1047, 1319, 1568]; // C6, E6, G6 - fast arpeggio
+        const noteLen = duration / 3;
+        
+        for (let i = 0; i < buffer.length; i++) {
+            const t = i / sampleRate;
+            const noteIdx = Math.min(2, Math.floor(t / noteLen));
+            const freq = notes[noteIdx];
+            const phase = freq * t;
+            
+            // Square wave with slight duty cycle variation
+            data[i] = 0.25 * this.squareWave(phase, 0.4);
+            
+            // Quick decay envelope per note
+            const noteT = (t - noteIdx * noteLen) / noteLen;
+            const env = Math.max(0, 1 - noteT * 0.5);
+            data[i] *= env;
+        }
+        
+        return buffer;
+    }
+    
+    /**
+     * Boulder/diamond landing - short low thud using triangle wave.
+     * The C64 original had a brief bass thump.
+     */
+    generateFallSound() {
+        const duration = 0.12;
+        const sampleRate = this.audioContext.sampleRate;
+        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+        const data = buffer.getChannelData(0);
+        
+        for (let i = 0; i < buffer.length; i++) {
+            const t = i / sampleRate;
+            // Descending pitch from ~200Hz to ~60Hz
+            const freq = 200 - 140 * (t / duration);
+            const phase = freq * t;
+            
+            // Triangle wave for bassy thud (C64 SID triangle)
+            data[i] = 0.35 * this.triangleWave(phase);
+            
+            // Sharp attack, quick decay
+            const env = Math.pow(1 - t / duration, 2);
+            data[i] *= env;
+        }
+        
+        return buffer;
+    }
+    
+    /**
+     * Explosion/crush - noise burst with descending pitch.
+     * C64 SID noise channel mixed with low square wave.
+     */
+    generateCrushSound() {
         const duration = 0.3;
         const sampleRate = this.audioContext.sampleRate;
         const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
         const data = buffer.getChannelData(0);
         
-        // Bright ascending tone
         for (let i = 0; i < buffer.length; i++) {
             const t = i / sampleRate;
-            const freq = 600 + 1200 * t;
-            data[i] = 0.5 * Math.sin(2 * Math.PI * freq * t);
-            // Apply envelope (fade in/out)
-            const envelope = Math.sin(Math.PI * t / duration);
-            data[i] *= envelope;
+            const progress = t / duration;
+            
+            // Noise component (C64 SID noise channel)
+            const noiseVal = this.noise();
+            
+            // Low descending square wave (rumble)
+            const freq = 150 * Math.pow(0.3, progress * 2);
+            const phase = freq * t;
+            const squareVal = this.squareWave(phase, 0.3);
+            
+            // Mix noise and square
+            data[i] = 0.3 * noiseVal + 0.15 * squareVal;
+            
+            // Sharp attack, gradual decay
+            const env = Math.pow(1 - progress, 1.5);
+            data[i] *= env;
         }
         
         return buffer;
     }
     
     /**
-     * Generate sound for objects falling
-     * @returns {AudioBuffer} - The generated sound
-     */
-    generateFallSound() {
-        const duration = 0.4;
-        const sampleRate = this.audioContext.sampleRate;
-        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-        const data = buffer.getChannelData(0);
-        
-        // Descending tone with impact
-        for (let i = 0; i < buffer.length; i++) {
-            const t = i / sampleRate;
-            const freq = 300 - 200 * t;
-            data[i] = 0.3 * Math.sin(2 * Math.PI * freq * t);
-            
-            // Add impact at the end
-            if (t > 0.3) {
-                const impact = (t - 0.3) / 0.1;
-                data[i] += 0.6 * Math.sin(2 * Math.PI * 100 * impact) * (1 - impact);
-            }
-            
-            // Apply envelope
-            const envelope = t < 0.3 ? 1 : 1 - ((t - 0.3) / 0.1);
-            data[i] *= envelope;
-        }
-        
-        return buffer;
-    }
-    
-    /**
-     * Generate sound for player being crushed
-     * @returns {AudioBuffer} - The generated sound
-     */
-    generateCrushSound() {
-        const duration = 0.6;
-        const sampleRate = this.audioContext.sampleRate;
-        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-        const data = buffer.getChannelData(0);
-        
-        // Harsh noise with downward pitch
-        for (let i = 0; i < buffer.length; i++) {
-            const t = i / sampleRate;
-            const noise = Math.random() * 2 - 1;
-            const freq = 400 * Math.pow(0.5, t * 3);
-            const tone = Math.sin(2 * Math.PI * freq * t);
-            
-            // Mix noise and tone
-            data[i] = 0.3 * tone + 0.4 * noise;
-            
-            // Apply envelope
-            const envelope = Math.pow(1 - t / duration, 0.5);
-            data[i] *= envelope;
-        }
-        
-        return buffer;
-    }
-    
-    /**
-     * Generate sound for completing a level
-     * @returns {AudioBuffer} - The generated sound
+     * Level complete - triumphant ascending melody.
+     * C64 BD played a characteristic jingle using square waves.
      */
     generateLevelCompleteSound() {
-        const duration = 1.5;
         const sampleRate = this.audioContext.sampleRate;
-        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+        // C5, E5, G5, C6 played as a victory arpeggio
+        const notes = [
+            { freq: 523, start: 0.0,  dur: 0.15 },
+            { freq: 659, start: 0.12, dur: 0.15 },
+            { freq: 784, start: 0.24, dur: 0.15 },
+            { freq: 1047, start: 0.36, dur: 0.3 },
+        ];
+        const totalDur = 0.7;
+        const buffer = this.audioContext.createBuffer(1, sampleRate * totalDur, sampleRate);
         const data = buffer.getChannelData(0);
-        
-        // Triumphant ascending arpeggio
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
         
         for (let i = 0; i < buffer.length; i++) {
             const t = i / sampleRate;
             data[i] = 0;
             
-            // Play each note in sequence
-            for (let j = 0; j < notes.length; j++) {
-                const noteStart = j * 0.2;
-                const noteEnd = noteStart + 0.4;
-                
-                if (t >= noteStart && t <= noteEnd) {
-                    const noteT = t - noteStart;
-                    const freq = notes[j];
-                    const amp = 0.3 * Math.sin(Math.PI * noteT / (noteEnd - noteStart));
-                    data[i] += amp * Math.sin(2 * Math.PI * freq * t);
+            for (const note of notes) {
+                if (t >= note.start && t < note.start + note.dur) {
+                    const noteT = t - note.start;
+                    const phase = note.freq * t;
+                    const env = Math.sin(Math.PI * noteT / note.dur);
+                    
+                    // Square wave melody + triangle wave harmony
+                    data[i] += 0.2 * this.squareWave(phase, 0.5) * env;
+                    data[i] += 0.1 * this.triangleWave(phase * 2) * env;
                 }
-            }
-            
-            // Add some harmonics for richness
-            if (t > 0.8) {
-                const chord = [523.25, 659.25, 783.99];
-                for (let note of chord) {
-                    data[i] += 0.1 * Math.sin(2 * Math.PI * note * t);
-                }
-                
-                // Apply envelope to the chord
-                const chordEnvelope = Math.sin(Math.PI * (t - 0.8) / 0.7);
-                data[i] *= (t < 1.5) ? chordEnvelope : 0;
             }
         }
         
@@ -189,100 +209,104 @@ export class SoundManager {
     }
     
     /**
-     * Generate sound for game over
-     * @returns {AudioBuffer} - The generated sound
+     * Game over - descending sad tones.
+     * C64 BD death used a quick descending square wave.
      */
     generateGameOverSound() {
-        const duration = 1.0;
+        const duration = 0.5;
         const sampleRate = this.audioContext.sampleRate;
         const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
         const data = buffer.getChannelData(0);
         
-        // Descending tones with dissonance
+        // Three descending notes
+        const notes = [392, 330, 262]; // G4, E4, C4
+        const noteLen = duration / 3;
+        
         for (let i = 0; i < buffer.length; i++) {
             const t = i / sampleRate;
-            const baseFreq = 300 * Math.pow(0.5, t);
+            const noteIdx = Math.min(2, Math.floor(t / noteLen));
+            const freq = notes[noteIdx];
+            const phase = freq * t;
             
-            // Multiple descending frequencies with slight dissonance
-            data[i] = 0.3 * Math.sin(2 * Math.PI * baseFreq * t);
-            data[i] += 0.2 * Math.sin(2 * Math.PI * (baseFreq * 0.995) * t);
-            data[i] += 0.15 * Math.sin(2 * Math.PI * (baseFreq * 1.5) * t);
+            // Square wave with narrowing pulse width for more "sad" timbre
+            const duty = 0.5 - (t / duration) * 0.2;
+            data[i] = 0.2 * this.squareWave(phase, duty);
             
-            // Add noise component that increases over time
-            const noise = Math.random() * 2 - 1;
-            const noiseAmount = Math.min(0.4, t * 0.6);
-            data[i] += noise * noiseAmount;
-            
-            // Apply envelope
-            const envelope = Math.pow(1 - t / duration, 0.8);
-            data[i] *= envelope;
-        }
-        
-        return buffer;
-    }
-    
-    /**
-     * Generate sound for movement
-     * @returns {AudioBuffer} - The generated sound
-     */
-    generateMoveSound() {
-        const duration = 0.1;
-        const sampleRate = this.audioContext.sampleRate;
-        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-        const data = buffer.getChannelData(0);
-        
-        // Short subtle sound for movement
-        for (let i = 0; i < buffer.length; i++) {
-            const t = i / sampleRate;
-            const freq = 200;
-            data[i] = 0.1 * Math.sin(2 * Math.PI * freq * t);
-            
-            // Add a slight noise component
-            const noise = Math.random() * 2 - 1;
-            data[i] += 0.05 * noise;
-            
-            // Apply envelope
-            const envelope = Math.sin(Math.PI * t / duration);
-            data[i] *= envelope;
-        }
-        
-        return buffer;
-    }
-    
-    /**
-     * Generate sound for exit opening
-     * @returns {AudioBuffer} - The generated sound
-     */
-    generateExitOpenSound() {
-        const duration = 0.8;
-        const sampleRate = this.audioContext.sampleRate;
-        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-        const data = buffer.getChannelData(0);
-        
-        // Magical portal opening sound
-        for (let i = 0; i < buffer.length; i++) {
-            const t = i / sampleRate;
-            
-            // Rising frequency sweep
-            const sweep = 300 + 1200 * Math.pow(t / duration, 2);
-            data[i] = 0.2 * Math.sin(2 * Math.PI * sweep * t);
-            
-            // Add some sparkle effects
-            if (t > 0.1) {
-                for (let j = 1; j <= 5; j++) {
-                    const sparkleFreq = 1000 + 500 * j;
-                    const sparklePhase = (j * 0.2) % 1.0;
-                    const sparkleMod = Math.sin(2 * Math.PI * (t - sparklePhase) * 8);
-                    
-                    if (sparkleMod > 0.7) {
-                        data[i] += 0.1 * Math.sin(2 * Math.PI * sparkleFreq * t) * (sparkleMod - 0.7) / 0.3;
-                    }
-                }
+            // Add slight noise on last note
+            if (noteIdx === 2) {
+                data[i] += 0.05 * this.noise();
             }
             
-            // Apply envelope
-            const envelope = Math.sin(Math.PI * t / duration);
-            data[i] *= envelope;
+            // Decay envelope
+            const noteT = (t - noteIdx * noteLen) / noteLen;
+            const env = Math.max(0, 1 - noteT * 0.6);
+            data[i] *= env * (1 - t / duration * 0.3); // Overall fade
+        }
+        
+        return buffer;
+    }
+    
+    /**
+     * Movement/digging - very short tick/scrape.
+     * C64 BD had a brief noise burst when Rockford moved through dirt.
+     */
+    generateMoveSound() {
+        const duration = 0.04;
+        const sampleRate = this.audioContext.sampleRate;
+        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+        const data = buffer.getChannelData(0);
+        
+        for (let i = 0; i < buffer.length; i++) {
+            const t = i / sampleRate;
+            
+            // Short noise burst (C64 SID noise) with high-frequency square
+            const noiseVal = this.noise();
+            const sqVal = this.squareWave(800 * t, 0.3);
+            
+            data[i] = 0.08 * noiseVal + 0.04 * sqVal;
+            
+            // Very sharp envelope
+            const env = 1 - (t / duration);
+            data[i] *= env * env;
+        }
+        
+        return buffer;
+    }
+    
+    /**
+     * Exit opening - distinctive ascending sweep.
+     * C64 BD signaled the exit opening with a rising tone.
+     */
+    generateExitOpenSound() {
+        const duration = 0.4;
+        const sampleRate = this.audioContext.sampleRate;
+        const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+        const data = buffer.getChannelData(0);
+        
+        for (let i = 0; i < buffer.length; i++) {
+            const t = i / sampleRate;
+            const progress = t / duration;
+            
+            // Rising square wave sweep from ~200Hz to ~1200Hz
+            const freq = 200 + 1000 * progress * progress;
+            const phase = freq * t;
+            
+            // Square wave with varying duty cycle
+            const duty = 0.5 - 0.2 * progress;
+            data[i] = 0.2 * this.squareWave(phase, duty);
+            
+            // Add a high triangle wave ping at the end
+            if (progress > 0.6) {
+                const pingPhase = 1568 * t; // G6
+                const pingEnv = (progress - 0.6) / 0.4;
+                data[i] += 0.15 * this.triangleWave(pingPhase) * pingEnv;
+            }
+            
+            // Envelope: fade in slightly, sustain, quick fade at end 
+            let env = 1;
+            if (progress < 0.05) env = progress / 0.05;
+            if (progress > 0.8) env = (1 - progress) / 0.2;
+            data[i] *= env;
         }
         
         return buffer;

@@ -3,7 +3,7 @@ import { generateLevel } from './level-generator.js';
 import { GamePhysics } from './physics.js';
 import { SoundManager } from './sound.js';
 import { TouchControls } from './touch-controls.js';
-import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS } from './constants.js';
+import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64 } from './constants.js';
 import { formatTime, debounce } from './utils.js';
 import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js';
 
@@ -88,26 +88,8 @@ class Game {
     }
     
     createBackgroundPattern() {
-        const patternCanvas = document.createElement('canvas');
-        patternCanvas.width = 32;
-        patternCanvas.height = 32;
-        const patternCtx = patternCanvas.getContext('2d');
-        
-        // Deep space background
-        patternCtx.fillStyle = '#0a0a12';
-        patternCtx.fillRect(0, 0, 32, 32);
-        
-        // Subtle grid pattern
-        patternCtx.strokeStyle = 'rgba(100, 100, 150, 0.05)';
-        patternCtx.lineWidth = 1;
-        patternCtx.beginPath();
-        patternCtx.moveTo(0, 16);
-        patternCtx.lineTo(32, 16);
-        patternCtx.moveTo(16, 0);
-        patternCtx.lineTo(16, 32);
-        patternCtx.stroke();
-        
-        return this.ctx.createPattern(patternCanvas, 'repeat');
+        // C64 Boulder Dash: pure black background, no patterns
+        return C64.BLACK;
     }
     
     createMuteButton() {
@@ -381,7 +363,7 @@ class Game {
         if (h.time !== this.timeRemaining) {
             h.time = this.timeRemaining;
             this.timeElement.textContent = `Time: ${formatTime(this.timeRemaining)}`;
-            this.timeElement.style.color = '#ffcc00';
+            this.timeElement.style.color = C64.YELLOW;
         }
         
         if (h.level !== this.level) {
@@ -1009,7 +991,7 @@ class Game {
                 y: centerY + Math.sin(angle) * distance,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed - 0.5, // Float upward
-                color: ['#00ff00', '#00ffff', '#ffff00', '#ffffff'][Math.floor(Math.random() * 4)],
+                color: [C64.GREEN, C64.CYAN, C64.YELLOW, C64.WHITE][Math.floor(Math.random() * 4)],
                 size: size,
                 life: life,
                 gravity: -0.02, // Negative gravity (float up)
@@ -1031,7 +1013,7 @@ class Game {
             this.particles.push({
                 x: centerX, y: centerY,
                 vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                color: i % 3 === 0 ? '#ff8800' : (i % 3 === 1 ? '#ffcc00' : '#ff3300'),
+                color: i % 3 === 0 ? C64.ORANGE : (i % 3 === 1 ? C64.YELLOW : C64.RED),
                 size: size, life: life, gravity: 0.2
             });
         }
@@ -1044,7 +1026,7 @@ class Game {
                 x: centerX + Math.cos(angle) * distance,
                 y: centerY + Math.sin(angle) * distance,
                 vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                color: '#aaaaaa', size: Math.random() * 8 + 4,
+                color: C64.GREY, size: Math.random() * 8 + 4,
                 life: Math.random() * 60 + 30, gravity: 0.05, opacity: 0.7
             });
         }
@@ -1057,14 +1039,14 @@ class Game {
         this.ctx.save();
         this.ctx.translate(shakeX, shakeY);
         
-        // Fill background
+        // Fill background (C64: pure black)
         this.ctx.fillStyle = this.backgroundPattern;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Apply screen flash effect
         if (this.screenFlash > 0) {
             const flashAlpha = Math.min(0.3, this.screenFlash / 60);
-            this.ctx.fillStyle = `rgba(255, 255, 200, ${flashAlpha})`;
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
         
@@ -1076,25 +1058,15 @@ class Game {
                     // Add glowing effect to exit when open
                     if (this.exitOpen && this.exitPosition && 
                         x === this.exitPosition.x && y === this.exitPosition.y) {
+                        // C64 style: exit flashes between white and green
                         const time = Date.now() / 1000;
-                        const pulse = Math.sin(time * 4) * 0.3 + 0.7;
+                        const flash = Math.floor(time * 6) % 2;
                         const posX = x * TILE_SIZE;
                         const posY = y * TILE_SIZE;
                         
-                        // Outer glow (layered strokes instead of expensive shadowBlur)
-                        this.ctx.globalAlpha = pulse * 0.15;
-                        this.ctx.strokeStyle = '#00ff00';
-                        this.ctx.lineWidth = 6;
+                        this.ctx.strokeStyle = flash ? C64.WHITE : C64.GREEN;
+                        this.ctx.lineWidth = 2;
                         this.ctx.strokeRect(posX, posY, TILE_SIZE, TILE_SIZE);
-                        
-                        this.ctx.globalAlpha = pulse * 0.4;
-                        this.ctx.lineWidth = 3;
-                        this.ctx.strokeRect(posX + 2, posY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-                        
-                        this.ctx.globalAlpha = pulse;
-                        this.ctx.lineWidth = 1;
-                        this.ctx.strokeRect(posX + 3, posY + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-                        this.ctx.globalAlpha = 1;
                     }
                 }
             }
@@ -1114,30 +1086,30 @@ class Game {
         }
         
         if (this.gameOver) {
-            this.drawMessage('GAME OVER', 'Press Restart', '#ff0000');
+            this.drawMessage('GAME OVER', 'Press Restart', C64.RED);
         } else if (this.levelComplete) {
-            this.drawMessage('LEVEL COMPLETE', `Score: ${this.score}`, '#00ff00');
+            this.drawMessage('LEVEL COMPLETE', `Score: ${this.score}`, C64.GREEN);
         }
         
-        // Show demo mode indicator
+        // Show demo mode indicator (C64 style)
         if (this.demoMode && !this.gameOver && !this.levelComplete) {
             const time = Date.now() / 1000;
             const blink = Math.floor(time * 2) % 2;
             if (blink) {
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                this.ctx.fillStyle = C64.BLACK;
                 this.ctx.fillRect(10, 10, 200, 50);
-                this.ctx.strokeStyle = '#ffff00';
+                this.ctx.strokeStyle = C64.YELLOW;
                 this.ctx.lineWidth = 2;
                 this.ctx.strokeRect(10, 10, 200, 50);
                 
-                this.ctx.fillStyle = '#ffff00';
-                this.ctx.font = 'bold 20px Courier New';
+                this.ctx.fillStyle = C64.YELLOW;
+                this.ctx.font = 'bold 20px "Press Start 2P", monospace';
                 this.ctx.textAlign = 'left';
                 this.ctx.textBaseline = 'top';
-                this.ctx.fillText('★ DEMO MODE ★', 20, 18);
-                this.ctx.font = '12px Courier New';
-                this.ctx.fillStyle = '#ffffff';
-                this.ctx.fillText('Press any key to exit', 20, 40);
+                this.ctx.fillText('DEMO', 20, 18);
+                this.ctx.font = '10px "Press Start 2P", monospace';
+                this.ctx.fillStyle = C64.LIGHT_GREY;
+                this.ctx.fillText('Press any key', 20, 40);
             }
         }
         
@@ -1156,36 +1128,26 @@ class Game {
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
         
-        // Semi-transparent background with blur effect
-        this.ctx.fillStyle = 'rgba(10, 10, 20, 0.85)';
-        this.ctx.beginPath();
-        this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
-        this.ctx.fill();
+        // C64 style: solid black box with colored border
+        this.ctx.fillStyle = C64.BLACK;
+        this.ctx.fillRect(centerX - 180, centerY - 60, 360, 120);
         
-        // Border glow (layered for glow effect without shadowBlur)
+        // Single pixel border (C64 style)
         this.ctx.strokeStyle = color;
-        this.ctx.globalAlpha = 0.3;
-        this.ctx.lineWidth = 7;
-        this.ctx.beginPath();
-        this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
-        this.ctx.stroke();
-        this.ctx.globalAlpha = 1;
         this.ctx.lineWidth = 3;
-        this.ctx.beginPath();
-        this.ctx.roundRect(centerX - 180, centerY - 70, 360, 140, 12);
-        this.ctx.stroke();
+        this.ctx.strokeRect(centerX - 180, centerY - 60, 360, 120);
         
-        // Title
+        // Title text
         this.ctx.fillStyle = color;
-        this.ctx.font = 'bold 28px "Press Start 2P", monospace';
+        this.ctx.font = '16px "Press Start 2P", monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(title, centerX, centerY - 20);
+        this.ctx.fillText(title, centerX, centerY - 15);
         
         // Subtitle
-        this.ctx.fillStyle = '#cccccc';
-        this.ctx.font = '14px "Press Start 2P", monospace';
-        this.ctx.fillText(subtitle, centerX, centerY + 30);
+        this.ctx.fillStyle = C64.LIGHT_GREY;
+        this.ctx.font = '10px "Press Start 2P", monospace';
+        this.ctx.fillText(subtitle, centerX, centerY + 25);
     }
     
     startDemoTimeout() {
@@ -1222,75 +1184,58 @@ class Game {
     drawTitleScreen() {
         const time = Date.now() / 1000;
         
-        // Black background with grid
-        this.ctx.fillStyle = '#000000';
+        // C64 blue background (classic C64 default screen color)
+        this.ctx.fillStyle = C64.BLUE;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw grid pattern
-        this.ctx.strokeStyle = 'rgba(255, 0, 255, 0.1)';
-        this.ctx.lineWidth = 1;
-        for (let x = 0; x < this.canvas.width; x += 40) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.canvas.height);
-            this.ctx.stroke();
-        }
-        for (let y = 0; y < this.canvas.height; y += 40) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.canvas.width, y);
-            this.ctx.stroke();
-        }
+        // C64 light blue border
+        this.ctx.strokeStyle = C64.LIGHT_BLUE;
+        this.ctx.lineWidth = 8;
+        this.ctx.strokeRect(4, 4, this.canvas.width - 8, this.canvas.height - 8);
         
-        // Animated title with multiple layers
         const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2 - 80;
+        const centerY = this.canvas.height / 2 - 60;
         
-        // Shadow layers for depth
-        this.ctx.font = 'bold 64px Courier New';
+        // Title: BOULDER DASH in C64 style
+        this.ctx.font = 'bold 48px "Press Start 2P", monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         
-        // Cyan shadow
-        this.ctx.fillStyle = '#00ffff';
-        this.ctx.fillText('BOULDER DASH', centerX + 6, centerY + 6);
+        // Shadow
+        this.ctx.fillStyle = C64.BLACK;
+        this.ctx.fillText('BOULDER DASH', centerX + 3, centerY + 3);
         
-        // Magenta shadow
-        this.ctx.fillStyle = '#ff00ff';
-        this.ctx.fillText('BOULDER DASH', centerX + 4, centerY + 4);
-        
-        // Main text (layered text shadow instead of shadowBlur)
-        const glowIntensity = Math.sin(time * 3) * 0.5 + 0.5;
-        this.ctx.globalAlpha = 0.3 + glowIntensity * 0.2;
-        this.ctx.fillStyle = '#ffff00';
-        this.ctx.fillText('BOULDER DASH', centerX + 1, centerY + 1);
-        this.ctx.fillText('BOULDER DASH', centerX - 1, centerY - 1);
-        this.ctx.globalAlpha = 1;
-        this.ctx.fillStyle = '#ffff00';
+        // Main text - yellow like C64 BD title
+        this.ctx.fillStyle = C64.YELLOW;
         this.ctx.fillText('BOULDER DASH', centerX, centerY);
         
-        // Subtitle
-        this.ctx.font = '24px Courier New';
-        this.ctx.fillStyle = '#00ffff';
-        this.ctx.fillText('★ COLLECT DIAMONDS AND ESCAPE! ★', centerX, centerY + 80);
+        // "BY PETER LIEPA" subtitle
+        this.ctx.font = '14px "Press Start 2P", monospace';
+        this.ctx.fillStyle = C64.CYAN;
+        this.ctx.fillText('BY PETER LIEPA', centerX, centerY + 50);
         
-        // Blinking "Press Start" text
-        const blink = Math.floor(time * 2) % 2;
+        // Diamond sprites decoration
+        this.ctx.fillStyle = C64.WHITE;
+        this.ctx.font = '16px "Press Start 2P", monospace';
+        this.ctx.fillText('\u25C6  COLLECT DIAMONDS  \u25C6', centerX, centerY + 90);
+        
+        // Blinking "PRESS FIRE TO START" (C64 style)
+        const blink = Math.floor(time * 1.5) % 2;
         if (blink) {
-            this.ctx.font = 'bold 28px Courier New';
-            this.ctx.fillStyle = '#ff00ff';
-            this.ctx.fillText('▶ PRESS START GAME ◀', centerX, centerY + 140);
+            this.ctx.font = '16px "Press Start 2P", monospace';
+            this.ctx.fillStyle = C64.WHITE;
+            this.ctx.fillText('PRESS START GAME', centerX, centerY + 140);
         }
         
-        // Copyright/credit text
-        this.ctx.font = '16px Courier New';
-        this.ctx.fillStyle = '#888888';
-        this.ctx.fillText('© 1984 RETRO ARCADE CLASSICS', centerX, this.canvas.height - 30);
+        // Cave info display
+        this.ctx.font = '10px "Press Start 2P", monospace';
+        this.ctx.fillStyle = C64.LIGHT_GREEN;
+        this.ctx.fillText('CAVE A - INTRO', centerX, centerY + 180);
         
-        // Animated border effect
-        this.ctx.strokeStyle = `rgba(255, 0, 255, ${glowIntensity})`;
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeRect(10, 10, this.canvas.width - 20, this.canvas.height - 20);
+        // Copyright
+        this.ctx.font = '10px "Press Start 2P", monospace';
+        this.ctx.fillStyle = C64.LIGHT_BLUE;
+        this.ctx.fillText('\u00A9 1984 FIRST STAR SOFTWARE', centerX, this.canvas.height - 30);
         
         // Request next frame for animation (tracked to prevent leak)
         if (!this.isRunning) {

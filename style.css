@@ -1,3 +1,5 @@
+/* C64 Boulder Dash - Authentic Commodore 64 styling */
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -6,8 +8,8 @@
 }
 
 body {
-    background: linear-gradient(135deg, #0a0015 0%, #050010 50%, #000508 100%);
-    color: #fff;
+    background: #0000AA; /* C64 blue */
+    color: #AAFFEE; /* C64 cyan */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -25,14 +27,10 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    background: linear-gradient(180deg, #0d0d1a 0%, #000 100%);
+    background: #000000;
     padding: 12px;
-    border: 3px solid #333;
-    border-radius: 8px;
-    box-shadow: 
-        0 0 30px rgba(0, 255, 255, 0.1),
-        0 0 60px rgba(255, 0, 255, 0.05),
-        inset 0 0 30px rgba(0, 0, 0, 0.5);
+    border: 4px solid #0088FF; /* C64 light blue border */
+    border-radius: 0;
     width: 100vw;
     height: 100vh;
     height: 100dvh;
@@ -51,14 +49,10 @@ body {
 }
 
 h1 {
-    color: #ffff00;
+    color: #EEEE77; /* C64 yellow */
     font-size: clamp(0.9rem, 2.5vw, 1.8rem);
     margin-bottom: 8px;
-    text-shadow: 
-        0 0 10px #ffff00,
-        0 0 20px #ff8800,
-        3px 3px 0 #ff00ff,
-        -1px -1px 0 #00ffff;
+    text-shadow: 2px 2px 0 #000000;
     letter-spacing: 3px;
     text-transform: uppercase;
     line-height: 1.4;
@@ -70,44 +64,40 @@ h1 {
     justify-content: center;
     gap: 8px;
     width: 100%;
-    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+    background: #000000;
     padding: 8px 12px;
     margin-bottom: 8px;
-    border: 2px solid #2a2a4a;
-    border-radius: 6px;
+    border: 2px solid #333333;
+    border-radius: 0;
     z-index: 10;
 }
 
 .game-info div {
     padding: 6px 10px;
-    background: rgba(0, 0, 0, 0.4);
+    background: #000000;
     border: 1px solid;
-    border-radius: 4px;
+    border-radius: 0;
     font-size: clamp(0.55rem, 1.8vw, 0.8rem);
     text-transform: uppercase;
     text-align: center;
     min-width: 85px;
-    transition: transform 0.1s ease;
 }
 
 .game-info div:hover {
-    transform: scale(1.05);
+    transform: none;
 }
 
-#score { color: #ffff00; border-color: #ffff0044; background: rgba(255, 255, 0, 0.08); }
-#highScore { color: #ff66ff; border-color: #ff66ff44; background: rgba(255, 0, 255, 0.08); }
-#diamonds { color: #00ffff; border-color: #00ffff44; background: rgba(0, 255, 255, 0.08); }
-#time { color: #ff6666; border-color: #ff666644; background: rgba(255, 0, 0, 0.08); }
-#level { color: #66ff66; border-color: #66ff6644; background: rgba(0, 255, 0, 0.08); }
+/* C64 palette HUD colors */
+#score { color: #EEEE77; border-color: #333333; } /* Yellow */
+#highScore { color: #CC44CC; border-color: #333333; } /* Purple */
+#diamonds { color: #AAFFEE; border-color: #333333; } /* Cyan */
+#time { color: #FF7777; border-color: #333333; }  /* Light red */
+#level { color: #AAFF66; border-color: #333333; }  /* Light green */
 
 #gameCanvas {
-    border: 3px solid #2a2a4a;
-    border-radius: 4px;
+    border: 3px solid #333333;
+    border-radius: 0;
     background-color: #000;
-    box-shadow: 
-        0 0 20px rgba(0, 255, 255, 0.15),
-        0 0 40px rgba(255, 0, 255, 0.08),
-        inset 0 0 20px rgba(0, 0, 0, 0.8);
     max-width: 100%;
     max-height: 62vh;
     width: auto;
@@ -139,51 +129,50 @@ h1 {
 
 .controls-info p {
     margin-bottom: 10px;
-    color: #aaa;
+    color: #0088FF; /* C64 light blue */
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
+/* C64 style flat buttons */
 button {
-    background: linear-gradient(180deg, #4a4a6a 0%, #2a2a4a 100%);
-    color: #fff;
-    border: 2px solid #5a5a8a;
+    background: #333333;
+    color: #BBBBBB;
+    border: 2px solid #777777;
     padding: 10px 20px;
     margin: 4px;
     font-size: clamp(0.65rem, 1.8vw, 0.9rem);
     cursor: pointer;
-    transition: all 0.15s ease;
     text-transform: uppercase;
     position: relative;
-    border-radius: 6px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border-radius: 0;
 }
 
 button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    background: #777777;
+    color: #FFFFFF;
 }
 
 button:active {
-    transform: translateY(1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    background: #BBBBBB;
+    color: #000000;
 }
 
 #startButton { 
-    background: linear-gradient(180deg, #00ff00 0%, #00aa00 100%); 
-    border-color: #00cc00;
-    color: #003300;
+    background: #00CC55; /* C64 green */
+    border-color: #AAFF66;
+    color: #000000;
 }
 #restartButton { 
-    background: linear-gradient(180deg, #ff4444 0%, #aa2222 100%); 
-    border-color: #cc3333;
-    color: #fff;
+    background: #880000; /* C64 red */
+    border-color: #FF7777;
+    color: #FFFFFF;
 }
 #helpButton { 
-    background: linear-gradient(180deg, #00ccff 0%, #0088aa 100%); 
-    border-color: #00aacc;
-    color: #003344;
+    background: #0088FF; /* C64 light blue */
+    border-color: #AAFFEE;
+    color: #000000;
 }
 
 #muteButton {
@@ -198,35 +187,34 @@ button:active {
     justify-content: center;
     font-size: 1.2rem;
     z-index: 20;
-    background: #333;
-    color: #fff;
-    border: 2px solid #555;
-    border-bottom: 4px solid #111;
+    background: #333333;
+    color: #BBBBBB;
+    border: 2px solid #777777;
+    border-radius: 0;
     box-shadow: none;
 }
 
-/* Help Modal */
+/* Help Modal - C64 style */
 #helpModal {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background-color: #111;
-    border: 4px solid #fff;
+    background-color: #0000AA; /* C64 blue background */
+    border: 4px solid #0088FF;
     padding: 20px;
     z-index: 1000;
     width: 90%;
     max-width: 500px;
-    box-shadow: 10px 10px 0 rgba(0,0,0,0.5);
 }
 
 .help-title {
-    color: #ffff00;
+    color: #EEEE77; /* C64 yellow */
     text-align: center;
     margin-bottom: 20px;
     font-size: 1.2rem;
     text-transform: uppercase;
-    text-shadow: 2px 2px 0 #ff0000;
+    text-shadow: 2px 2px 0 #000000;
 }
 
 .help-list {
@@ -236,22 +224,22 @@ button:active {
 
 .help-list li {
     margin-bottom: 12px;
-    color: #fff;
+    color: #AAFFEE; /* C64 cyan */
     font-size: 0.8rem;
     line-height: 1.4;
 }
 
-.help-list strong { color: #00ffff; }
+.help-list strong { color: #EEEE77; } /* C64 yellow for keys */
 
 .help-close {
     display: block;
     margin: 20px auto 0;
-    background: #ff00ff;
-    border-bottom-color: #880088;
-    color: white;
+    background: #CC44CC; /* C64 purple */
+    border-color: #FF7777;
+    color: #FFFFFF;
 }
 
-/* Touch Controls */
+/* Touch Controls - C64 style */
 .touch-controls {
     position: fixed;
     bottom: 20px;
@@ -270,25 +258,22 @@ button:active {
 .dpad-btn {
     width: 60px;
     height: 60px;
-    background: linear-gradient(180deg, rgba(100, 100, 150, 0.4) 0%, rgba(50, 50, 100, 0.4) 100%);
-    border: 2px solid rgba(150, 150, 255, 0.4);
-    color: rgba(255, 255, 255, 0.9);
+    background: #333333;
+    border: 2px solid #777777;
+    color: #BBBBBB;
     font-size: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    border-radius: 0;
     -webkit-user-select: none;
     user-select: none;
     touch-action: manipulation;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    transition: all 0.1s ease;
 }
 
 .dpad-btn:active {
-    background: linear-gradient(180deg, rgba(150, 150, 200, 0.5) 0%, rgba(100, 100, 150, 0.5) 100%);
-    transform: scale(0.92);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    background: #777777;
+    color: #FFFFFF;
 }
 
 .dpad-up { grid-column: 2; grid-row: 1; }
@@ -296,9 +281,9 @@ button:active {
 .dpad-center { 
     grid-column: 2; grid-row: 2; 
     font-size: 0.6rem; 
-    border-radius: 8px;
-    background: rgba(255, 0, 0, 0.2);
-    border-color: rgba(255, 0, 0, 0.4);
+    background: #880000;
+    border-color: #FF7777;
+    color: #FFFFFF;
 }
 .dpad-right { grid-column: 3; grid-row: 2; }
 .dpad-down { grid-column: 2; grid-row: 3; }
