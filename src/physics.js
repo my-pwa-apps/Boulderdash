@@ -9,8 +9,7 @@ export class GamePhysics {
         this.grid = cloneGrid(grid);
         this.width = this.grid[0].length;
         this.height = this.grid.length;
-        this.fallingObjects = new Set(); // Track falling boulders and diamonds
-        this.previouslyFalling = new Set(); // Track what was falling last frame
+        this.fallingObjects = new Set(); // Persistent set: objects enter when they start falling, leave when at rest
         this.lastUpdatedCell = null; // Track the last updated cell for animation
         this.playerCrushedThisFrame = false; // Flag for crush detection
     }
@@ -32,22 +31,18 @@ export class GamePhysics {
     }
     
     /**
-     * Call once per game frame BEFORE any physics substeps.
-     * Saves the falling state from the end of last frame.
-     */
-    beginFrame() {
-        this.previouslyFalling = new Set(this.fallingObjects);
-        this.playerCrushedThisFrame = false;
-    }
-    
-    /**
      * Update the physics state of the game (optimized)
+     * Uses a persistent fallingObjects set — objects enter when they start
+     * moving (fall/roll/push) and are removed when they come to rest.
+     * A falling object crushes the player; a resting object does not.
      * @returns {boolean} - Whether any physics updates occurred
      */
     update() {
-        // Clear current falling objects (will be rebuilt this substep)
-        this.fallingObjects.clear();
         this.lastUpdatedCell = null;
+        this.playerCrushedThisFrame = false;
+        
+        // Track which positions we process this tick (to update fallingObjects)
+        const processedThisTick = new Set();
         
         let physicsUpdated = false;
         
@@ -61,6 +56,9 @@ export class GamePhysics {
                     continue;
                 }
                 
+                const key = `${x},${y}`;
+                processedThisTick.add(key);
+                
                 // Inline canFall check for performance
                 const below = this.grid[y + 1][x];
                 
@@ -68,22 +66,23 @@ export class GamePhysics {
                     // Direct fall
                     this.grid[y + 1][x] = element;
                     this.grid[y][x] = ELEMENT_TYPES.EMPTY;
+                    this.fallingObjects.delete(key);
                     this.fallingObjects.add(`${x},${y+1}`);
                     this.lastUpdatedCell = { x, y: y+1, type: 'fall' };
                     physicsUpdated = true;
                 } else if (below === ELEMENT_TYPES.PLAYER) {
-                    // Check if this object was falling - if so, crush the player!
-                    // Object was falling if it was marked in fallingObjects last frame
-                    const wasFalling = this.previouslyFalling.has(`${x},${y}`);
-                    if (wasFalling) {
+                    // Only crush if this object is actively falling
+                    if (this.fallingObjects.has(key)) {
                         // Falling object lands on player - crush them!
                         this.grid[y + 1][x] = element;
                         this.grid[y][x] = ELEMENT_TYPES.EMPTY;
+                        this.fallingObjects.delete(key);
                         this.playerCrushedThisFrame = true;
                         this.lastUpdatedCell = { x, y: y+1, type: 'crush' };
                         physicsUpdated = true;
                     } else {
-                        // Not falling, try to roll off
+                        // Not falling — boulder is resting, player can stand under it
+                        // Try to roll off the player's head
                         if (this.tryRollOptimized(x, y)) {
                             physicsUpdated = true;
                         }
@@ -96,18 +95,37 @@ export class GamePhysics {
                             ELEMENT_TYPES.DIAMOND : ELEMENT_TYPES.BOULDER;
                         this.grid[y + 2][x] = convertedElement;
                         this.grid[y][x] = ELEMENT_TYPES.EMPTY;
+                        this.fallingObjects.delete(key);
                         this.fallingObjects.add(`${x},${y+2}`);
                         this.lastUpdatedCell = { x, y: y+2, type: 'magic' };
                         physicsUpdated = true;
+                    } else {
+                        // Can't pass through magic wall, come to rest
+                        this.fallingObjects.delete(key);
                     }
                 } else if (below === ELEMENT_TYPES.BOULDER || 
                           below === ELEMENT_TYPES.DIAMOND || 
                           below === ELEMENT_TYPES.WALL) {
-                    // Try to roll off
+                    // Try to roll off rounded surface
                     if (this.tryRollOptimized(x, y)) {
+                        // Rolling transfers falling state (handled inside tryRollOptimized)
+                        this.fallingObjects.delete(key);
                         physicsUpdated = true;
+                    } else {
+                        // Can't roll, come to rest
+                        this.fallingObjects.delete(key);
                     }
+                } else {
+                    // On dirt or other non-empty surface — at rest
+                    this.fallingObjects.delete(key);
                 }
+            }
+        }
+        
+        // Clean up any stale entries (objects that were destroyed or collected)
+        for (const key of this.fallingObjects) {
+            if (!processedThisTick.has(key)) {
+                this.fallingObjects.delete(key);
             }
         }
         

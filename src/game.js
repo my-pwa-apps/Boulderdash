@@ -520,7 +520,6 @@ class Game {
     
     updatePhysics() {
         if (!this.physics) return;
-        this.physics.beginFrame();
         this.physics.update();
         if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
             this.handlePlayerDeath('Crushed!');
