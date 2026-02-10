@@ -35,7 +35,7 @@ class Game {
         
         // Movement rate limiting (C64 BD: Rockford moves ~6 tiles/sec)
         this.moveTimer = 0;
-        this.moveInterval = 133; // ms between moves (~7.5 tiles/sec, authentic feel)
+        this.moveInterval = 50; // ms between moves (matches physics rate, like original C64)
         this.backgroundPattern = this.createBackgroundPattern();
         this.scoreElement = document.getElementById('score');
         this.highScoreElement = document.getElementById('highScore');
@@ -434,6 +434,10 @@ class Game {
         }
         
         // Physics runs AFTER player move (falling objects)
+        // Call beginFrame once to save last frame's falling state
+        if (this.physics) {
+            this.physics.beginFrame();
+        }
         this.physicsAccumulator = (this.physicsAccumulator || 0) + cappedDelta;
         const physicsStep = 50;
         while (this.physicsAccumulator >= physicsStep) {

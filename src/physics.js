@@ -32,15 +32,22 @@ export class GamePhysics {
     }
     
     /**
+     * Call once per game frame BEFORE any physics substeps.
+     * Saves the falling state from the end of last frame.
+     */
+    beginFrame() {
+        this.previouslyFalling = new Set(this.fallingObjects);
+        this.playerCrushedThisFrame = false;
+    }
+    
+    /**
      * Update the physics state of the game (optimized)
      * @returns {boolean} - Whether any physics updates occurred
      */
     update() {
-        // Save previous falling objects before clearing
-        this.previouslyFalling = new Set(this.fallingObjects);
+        // Clear current falling objects (will be rebuilt this substep)
         this.fallingObjects.clear();
         this.lastUpdatedCell = null;
-        this.playerCrushedThisFrame = false;
         
         let physicsUpdated = false;
         
