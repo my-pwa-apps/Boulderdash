@@ -219,9 +219,10 @@ class Game {
         // Calculate available height (viewport minus header, HUD, controls, and margins)
         const headerHeight = document.querySelector('.game-header')?.offsetHeight || 150;
         const controlsHeight = document.querySelector('.game-controls')?.offsetHeight || 120;
+        const touchControlsHeight = document.getElementById('touchControls')?.offsetHeight || 0;
         const margins = 80; // Total vertical margins and padding
         
-        const availableHeight = viewportHeight - headerHeight - controlsHeight - margins;
+        const availableHeight = viewportHeight - headerHeight - controlsHeight - touchControlsHeight - margins;
         const availableWidth = Math.min(
             container.clientWidth - 40,
             viewportWidth - 60
