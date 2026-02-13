@@ -264,6 +264,9 @@ class Game {
             this.restartButton.classList.remove('hidden');
         }
         
+        // Remove focus from all buttons to prevent accidental keyboard activation
+        document.activeElement?.blur();
+        
         this.helpModal.style.display = 'none';
         this.loadLevel(this.level);
         this.startTimer();
@@ -423,6 +426,9 @@ class Game {
         // Single game tick: player + physics + enemies in lockstep (like original C64 BD)
         this.gameTickAccumulator += cappedDelta;
         while (this.gameTickAccumulator >= this.gameTickRate) {
+            // Break immediately if game ended mid-tick (death, level complete)
+            if (this.gameOver || this.levelComplete) break;
+            
             // 1. Player moves FIRST (gives time to escape falling objects)
             if (this.demoMode) {
                 this.aiMoveCounter += this.gameTickRate;
