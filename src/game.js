@@ -1,11 +1,11 @@
-import { generateAssets } from './assets.js';
-import { generateLevel } from './level-generator.js';
-import { GamePhysics } from './physics.js';
-import { SoundManager } from './sound.js';
-import { TouchControls } from './touch-controls.js';
-import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js';
-import { formatTime, debounce } from './utils.js';
-import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js';
+import { generateAssets } from './assets.js?v=1.3.0';
+import { generateLevel } from './level-generator.js?v=1.3.0';
+import { GamePhysics } from './physics.js?v=1.3.0';
+import { SoundManager } from './sound.js?v=1.3.0';
+import { TouchControls } from './touch-controls.js?v=1.3.0';
+import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js?v=1.3.0';
+import { formatTime, debounce } from './utils.js?v=1.3.0';
+import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js?v=1.3.0';
 
 class Game {
     constructor() {
@@ -48,6 +48,8 @@ class Game {
         this.helpModal = document.getElementById('helpModal');
         this.closeHelpButton = document.getElementById('closeHelpButton');
         this.isRunning = false;
+        this.isPaused = false;
+        this.pausedByHelp = false;
         this.gameOver = false;
         this.levelComplete = false;
         this.level = 1;
@@ -79,6 +81,7 @@ class Game {
         
         // Initialize touch controls for mobile
         this.touchControls = new TouchControls(this);
+        this.setGameplayUiState(false);
         
         // Initialize Firebase
         this.firebaseInitialized = initializeFirebase();
@@ -135,11 +138,16 @@ class Game {
         this.restartButton.addEventListener('click', () => this.restartGame());
         this.helpButton.addEventListener('click', () => {
             this.cancelDemoTimeout();
+            this.pausedByHelp = this.isRunning;
             this.helpModal.style.display = 'block';
             if (this.isRunning) this.pauseGame();
         });
         this.closeHelpButton.addEventListener('click', () => {
             this.helpModal.style.display = 'none';
+            if (this.pausedByHelp && !this.gameOver && !this.levelComplete) {
+                this.resumeGame();
+            }
+            this.pausedByHelp = false;
         });
         
         // Cancel demo timeout on any click interaction
@@ -162,6 +170,12 @@ class Game {
             // Cancel demo timeout if user presses any key on splash screen
             if (!this.isRunning) {
                 this.cancelDemoTimeout();
+            }
+
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.togglePause();
+                return;
             }
             
             // Handle space bar for grab action
@@ -206,6 +220,18 @@ class Game {
                 this.pauseGame();
             }
         });
+    }
+    
+    setGameplayUiState(isGameplayActive) {
+        document.body.classList.toggle('game-running', isGameplayActive);
+        if (isGameplayActive) {
+            this.touchControls?.show();
+        } else {
+            this.touchControls?.hide();
+            this.keysHeld.clear();
+            this.playerNextDirection = null;
+            this.spacePressed = false;
+        }
     }
     
     handleResize() {
@@ -257,6 +283,8 @@ class Game {
         this.level = 1;
         this.score = 0;
         this.isRunning = true;
+        this.isPaused = false;
+        this.pausedByHelp = false;
         this.gameOver = false;
         this.levelComplete = false;
         
@@ -269,6 +297,7 @@ class Game {
         document.activeElement?.blur();
         
         this.helpModal.style.display = 'none';
+        this.setGameplayUiState(!isDemoMode);
         this.loadLevel(this.level);
         this.startTimer();
         this.gameLoop();
@@ -289,18 +318,32 @@ class Game {
     pauseGame() {
         if (!this.isRunning) return;
         this.isRunning = false;
+        this.isPaused = true;
+        this.setGameplayUiState(false);
         this.stopTimer();
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
+        this.render();
     }
     
     resumeGame() {
-        if (this.isRunning) return;
+        if (this.isRunning || this.gameOver || this.levelComplete || !this.isPaused) return;
         this.isRunning = true;
+        this.isPaused = false;
+        this.setGameplayUiState(!this.demoMode);
         this.startTimer();
         this.gameLoop();
+    }
+    
+    togglePause() {
+        if (this.gameOver || this.levelComplete || this.demoMode) return;
+        if (this.isRunning) {
+            this.pauseGame();
+        } else if (this.isPaused) {
+            this.resumeGame();
+        }
     }
     
     startTimer() {
@@ -364,12 +407,30 @@ class Game {
     }
     
     async loadHighScore() {
+        this.highScore = this.getLocalHighScore();
+        this.updateHighScoreDisplay();
+
+        if (!this.firebaseInitialized) {
+            return;
+        }
+
         try {
             const scores = await getHighScores(1);
-            this.highScore = scores.length > 0 ? scores[0].score : 0;
+            this.highScore = Math.max(this.highScore, scores.length > 0 ? scores[0].score : 0);
             this.updateHighScoreDisplay();
         } catch (error) {
-            this.highScore = 0;
+            this.updateHighScoreDisplay();
+        }
+    }
+    
+    getLocalHighScore() {
+        const storedScore = Number(localStorage.getItem('boulderdashHighScore'));
+        return Number.isFinite(storedScore) && storedScore > 0 ? storedScore : 0;
+    }
+    
+    saveLocalHighScore(score) {
+        if (score > this.getLocalHighScore()) {
+            localStorage.setItem('boulderdashHighScore', String(score));
         }
     }
     
@@ -766,9 +827,6 @@ class Game {
         
         return null;
     }
-
-    // Deprecated methods removed: findBestTarget, findUnexploredTarget, findPathAStar, reconstructPath
-    
     evaluateAllMoves(px, py, target) {
         const validMoves = [];
         const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
@@ -807,14 +865,6 @@ class Game {
         
         validMoves.sort((a, b) => b.score - a.score);
         return validMoves;
-    }
-    
-    getDirectionToPosition(fromX, fromY, toX, toY) {
-        if (toX > fromX) return 'RIGHT';
-        if (toX < fromX) return 'LEFT';
-        if (toY > fromY) return 'DOWN';
-        if (toY < fromY) return 'UP';
-        return 'RIGHT'; // Default
     }
     
     getNewPosition(x, y, direction) {
@@ -975,14 +1025,24 @@ class Game {
         this.sound.play('crush');
         this.gameOver = true;
         this.isRunning = false;
+        this.isPaused = false;
+        this.setGameplayUiState(false);
         this.stopTimer();
         // Show restart button when game is over
         this.restartButton.classList.remove('hidden');
         this.startButton.classList.add('hidden');
         
+        if (!this.demoMode && this.score > 0) {
+            this.saveLocalHighScore(this.score);
+            if (this.score > this.highScore) {
+                this.highScore = this.score;
+                this.updateHighScoreDisplay();
+            }
+        }
+        
         // Log game over event and save high score (only for real players, not demo mode)
         if (this.firebaseInitialized && !this.demoMode) {
-            logGameEvent('game_over', { 
+            logGameEvent('game_over', {
                 reason: reason, 
                 level: this.level, 
                 score: this.score 
@@ -991,11 +1051,6 @@ class Game {
             // Save high score to Firebase
             if (this.score > 0) {
                 saveHighScore('Player', this.score, this.level);
-                if (this.score > this.highScore) {
-                    this.highScore = this.score;
-                    this.updateHighScoreDisplay();
-                }
-                this.showHighScoreMessage();
             }
         }
     }
@@ -1004,6 +1059,8 @@ class Game {
         this.sound.play('complete');
         this.levelComplete = true;
         this.isRunning = false;
+        this.isPaused = false;
+        this.setGameplayUiState(false);
         this.stopTimer();
         this.score += this.timeRemaining * 5;
         this.updateHUD();
@@ -1022,16 +1079,14 @@ class Game {
         }, 3000);
     }
     
-    async showHighScoreMessage() {
-        // High score tracking handled silently
-    }
-    
     nextLevel() {
         this.level++;
         this.levelComplete = false;
         this.gameOver = false;
         this.isRunning = true;
+        this.isPaused = false;
         this.timeRemaining = 0;
+        this.setGameplayUiState(!this.demoMode);
         this.loadLevel(this.level);
         this.startTimer();
         this.gameLoop();
@@ -1162,7 +1217,9 @@ class Game {
             this.ctx.globalAlpha = 1;
         }
         
-        if (this.gameOver) {
+        if (this.isPaused) {
+            this.drawMessage('PAUSED', 'Press ESC to resume', C64.YELLOW);
+        } else if (this.gameOver) {
             this.drawMessage('GAME OVER', 'Press Restart', C64.RED);
         } else if (this.levelComplete) {
             this.drawMessage('LEVEL COMPLETE', `Score: ${this.score}`, C64.GREEN);
@@ -1272,7 +1329,9 @@ class Game {
         this.aiPath = [];
         this.aiMemory = null; // Reset AI memory
         this.isRunning = false;
+        this.isPaused = false;
         this.gameOver = false;
+        this.setGameplayUiState(false);
         this.stopTimer();
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);

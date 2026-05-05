@@ -1,4 +1,4 @@
-import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js';
+import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js?v=1.3.0';
 
 /**
  * Original Boulder Dash cave definitions (16 classic caves A-P)

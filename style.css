@@ -105,7 +105,6 @@ h1 {
     height: auto;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: pixelated;
-    image-rendering: crisp-edges;
     display: block;
     margin: 0 auto;
     z-index: 5;
@@ -247,12 +246,21 @@ button:active {
     left: 0;
     right: 0;
     z-index: 2000;
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     padding: 10px 10px max(10px, env(safe-area-inset-bottom));
     background: rgba(0, 0, 0, 0.85);
     border-top: 2px solid #333;
+    pointer-events: none;
+}
+
+body.touch-device.game-running .touch-controls {
+    display: flex;
+}
+
+.touch-controls button {
+    pointer-events: auto;
 }
 
 .dpad-container {
@@ -330,35 +338,36 @@ button:active {
 }
 
 /* When touch controls are visible, adjust game layout */
-body.touch-device .game-container {
+body.touch-device.game-running .game-container {
     height: auto;
-    min-height: auto;
+    min-height: 0;
     max-height: 100vh;
     max-height: 100dvh;
+    padding-bottom: calc(180px + env(safe-area-inset-bottom));
 }
 
-body.touch-device #gameCanvas {
+body.touch-device.game-running #gameCanvas {
     max-height: 45vh;
     max-height: 45dvh;
 }
 
-body.touch-device .game-controls {
+body.touch-device.game-running .game-controls {
     margin-top: 5px;
     padding: 5px;
 }
 
-body.touch-device .controls-info p {
+body.touch-device.game-running .controls-info p {
     margin-bottom: 5px;
 }
 
 /* Landscape orientation on mobile */
 @media (max-height: 500px) and (orientation: landscape) {
-    body.touch-device .game-header h1 { display: none; }
-    body.touch-device .game-info { margin-bottom: 2px; padding: 2px 5px; }
-    body.touch-device .game-info div { padding: 2px 6px; font-size: 0.5rem; }
-    body.touch-device .game-container { padding: 2px; }
-    body.touch-device .game-controls { margin-top: 2px; padding: 2px; }
-    body.touch-device #gameCanvas { max-height: 50vh; max-height: 50dvh; }
+    body.touch-device.game-running .game-header h1 { display: none; }
+    body.touch-device.game-running .game-info { margin-bottom: 2px; padding: 2px 5px; }
+    body.touch-device.game-running .game-info div { padding: 2px 6px; font-size: 0.5rem; }
+    body.touch-device.game-running .game-container { padding: 2px 2px calc(150px + env(safe-area-inset-bottom)); }
+    body.touch-device.game-running .game-controls { margin-top: 2px; padding: 2px; }
+    body.touch-device.game-running #gameCanvas { max-height: 50vh; max-height: 50dvh; }
     
     .touch-controls { padding: 5px; }
     .dpad { width: min(40vw, 160px); height: min(40vw, 160px); }

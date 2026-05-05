@@ -8,14 +8,14 @@ A modern Progressive Web App (PWA) implementation of the classic Boulder Dash ar
 
 ## 🎮 Play Now
 
-Visit [your-url-here] or install as a PWA on your device!
+Serve the repository root locally or publish it with a static host such as GitHub Pages, then install it as a PWA on your device.
 
 ## ✨ Features
 
 ### 🎯 Gameplay
 - **Classic Boulder Dash Mechanics** - Dig through dirt, collect diamonds, avoid falling rocks
-- **10 Progressive Levels** - Increasing difficulty and complexity
-- **Smart Enemy AI** - Enemies hunt the player using pathfinding
+- **16 Classic Caves + Procedural Continuation** - Classic cave patterns with generated levels after the original set
+- **Classic Enemy Movement** - Fireflies and butterflies follow Boulder Dash-style wall-following rules
 - **Physics Engine** - Realistic boulder rolling and falling mechanics
 - **Grab Mechanic** - Hold SPACE + direction to grab without moving
 
@@ -59,20 +59,17 @@ Visit [your-url-here] or install as a PWA on your device!
    
    Using Python:
    ```bash
-   cd public
    python -m http.server 8000
    ```
    
    Using Node.js (http-server):
    ```bash
    npm install -g http-server
-   cd public
    http-server -p 8000
    ```
    
    Using PHP:
    ```bash
-   cd public
    php -S localhost:8000
    ```
 
@@ -124,11 +121,12 @@ Visit [your-url-here] or install as a PWA on your device!
 
 ```
 Boulderdash/
+├── index.html             # Main HTML file with PWA meta tags
+├── style.css              # Complete styling with mobile support
+├── manifest.json          # PWA manifest
+├── sw.js                  # Service worker for offline support
 ├── public/
-│   ├── index.html          # Main HTML file with PWA meta tags
-│   ├── style.css           # Complete styling with mobile support
-│   ├── manifest.json       # PWA manifest
-│   └── sw.js              # Service worker for offline support
+│   └── icon*.svg          # PWA and browser icons
 ├── src/
 │   ├── game.js            # Main game loop and logic
 │   ├── physics.js         # Physics engine for falling objects
@@ -155,7 +153,7 @@ export const GAME_SETTINGS = {
     INITIAL_TIME: 180,              // Starting time in seconds
     ENEMY_SPEED: 0.4,               // Enemy movement speed
     BOULDER_FALL_SPEED: 4,          // Falling object speed
-    LEVEL_COUNT: 10                 // Total number of levels
+    LEVEL_COUNT: 16                 // Total classic levels before procedural continuation
 };
 ```
 
@@ -173,13 +171,13 @@ Customize the retro arcade palette:
 
 ```javascript
 export const COLORS = {
-    WALL: '#8B4789',        // Purple brick
-    DIRT: '#CD853F',        // Sandy brown
-    BOULDER: '#A9A9A9',     // Silver gray
-    DIAMOND: '#00FFFF',     // Bright cyan
-    EXIT: '#FF00FF',        // Hot magenta
-    PLAYER: '#FFFF00',      // Bright yellow
-    ENEMY: '#FF0000'        // Bright red
+    WALL: C64.LIGHT_BLUE,
+    DIRT: C64.BROWN,
+    BOULDER: C64.LIGHT_GREY,
+    DIAMOND: C64.WHITE,
+    EXIT: C64.GREY,
+    PLAYER: C64.WHITE,
+    ENEMY: C64.RED
 };
 ```
 

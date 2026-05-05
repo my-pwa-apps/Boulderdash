@@ -1,7 +1,6 @@
 # Firebase Database Permissions Setup
 
-## Current Issue
-Your Firebase Realtime Database is currently **read-only**, preventing high scores from being saved.
+Firebase is optional. The game stores a local best score in `localStorage` when Firebase is unavailable, so the core game still works offline and without database permissions.
 
 ## Fix Instructions
 
@@ -15,19 +14,25 @@ Or navigate manually:
 - Click **Rules** tab
 
 ### 2. Update Rules
-Replace the current rules with:
+Use validation rules instead of public unrestricted writes:
 
 ```json
 {
   "rules": {
     "highscores": {
       ".read": true,
-      ".write": true,
-      ".indexOn": ["score"]
+      ".indexOn": ["score"],
+      "$scoreId": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['playerName', 'score', 'level', 'timestamp']) && newData.child('playerName').isString() && newData.child('playerName').val().matches(/^[A-Za-z0-9 _-]{1,20}$/) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 10000000 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('timestamp').isNumber()"
+      }
     },
     "game_events": {
       ".read": false,
-      ".write": true
+      "$eventId": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['event', 'params', 'timestamp']) && newData.child('event').isString() && newData.child('event').val().matches(/^.{1,40}$/) && newData.child('timestamp').isNumber()"
+      }
     }
   }
 }
@@ -40,42 +45,33 @@ Click the **Publish** button to apply the new rules.
 
 ### `highscores` node:
 - ✅ **`.read: true`** - Anyone can read high scores (view leaderboard)
-- ✅ **`.write: true`** - Anyone can write high scores (submit scores)
+- ✅ **validated writes** - Clients can submit scores only in the expected shape and range
 - ✅ **`.indexOn: ["score"]`** - Optimizes queries sorted by score
 
 ### `game_events` node:
 - ❌ **`.read: false`** - Game events are private (analytics only)
-- ✅ **`.write: true`** - Game can log events for analytics
+- ✅ **validated writes** - Game can log bounded analytics events
 
 ## Security Note
 
-⚠️ **Public write access** means anyone can submit high scores. For a production app, consider:
+These client-side rules prevent malformed records and casual database spam, but they do not prove a score was earned. For a competitive leaderboard, add Firebase Authentication and server-side score validation with Cloud Functions.
 
-1. **Add validation rules** to prevent score manipulation:
+Optional authentication hardening:
 ```json
 "highscores": {
   "$scoreId": {
-    ".validate": "newData.hasChildren(['playerName', 'score', 'level', 'timestamp']) && newData.child('score').isNumber() && newData.child('level').isNumber()"
+    ".write": "auth != null"
   }
 }
 ```
-
-2. **Use Firebase Authentication** to track users:
-```json
-"highscores": {
-  ".write": "auth != null"
-}
-```
-
-3. **Add server-side validation** using Cloud Functions to verify scores
 
 ## Testing
 
 After updating the rules:
 1. Refresh your game (Ctrl+F5)
 2. Play and die (to trigger game over)
-3. Check browser console - should see "High score saved successfully" ✅
-4. Check Firebase Console → Data tab to see your high score
+3. Check Firebase Console -> Data tab to see your high score
+4. Disable network and repeat; the HUD should still preserve the local best score
 
 ## Current Database URL
 ```

@@ -13,6 +13,8 @@ const firebaseConfig = {
 // Initialize Firebase (will need Firebase SDK loaded)
 let firebaseApp = null;
 let database = null;
+const MAX_REASONABLE_SCORE = 10000000;
+const MAX_PLAYER_NAME_LENGTH = 20;
 
 export function initializeFirebase() {
   try {
@@ -36,13 +38,22 @@ export async function saveHighScore(playerName, score, level) {
     return false;
   }
   
+  const safeName = sanitizePlayerName(playerName);
+  const safeScore = Number(score);
+  const safeLevel = Number(level);
+  
+  if (!safeName || !Number.isInteger(safeScore) || !Number.isInteger(safeLevel) ||
+      safeScore < 0 || safeScore > MAX_REASONABLE_SCORE || safeLevel < 1) {
+    return false;
+  }
+  
   try {
     const scoresRef = database.ref('highscores');
     const newScoreRef = scoresRef.push();
     await newScoreRef.set({
-      playerName: playerName,
-      score: score,
-      level: level,
+      playerName: safeName,
+      score: safeScore,
+      level: safeLevel,
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
     return true;
@@ -82,16 +93,34 @@ export async function getHighScores(limit = 10) {
 // Store game statistics in database (instead of analytics)
 export async function logGameEvent(eventName, eventParams = {}) {
   if (!database) return;
+  if (typeof eventName !== 'string' || eventName.length > 40) return;
   
   try {
     const eventsRef = database.ref('game_events');
     await eventsRef.push({
       event: eventName,
-      params: eventParams,
+      params: sanitizeEventParams(eventParams),
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
   } catch (error) {
     // Silently fail - expected when Firebase permissions not configured
+  }
+}
+
+function sanitizePlayerName(playerName) {
+  return String(playerName || 'Player')
+    .replace(/[^a-z0-9 _-]/gi, '')
+    .trim()
+    .slice(0, MAX_PLAYER_NAME_LENGTH) || 'Player';
+}
+
+function sanitizeEventParams(eventParams) {
+  try {
+    const serialized = JSON.stringify(eventParams).slice(0, 1000);
+    const parsed = JSON.parse(serialized);
+    return parsed && parsed.constructor === Object ? parsed : {};
+  } catch (error) {
+    return {};
   }
 }
 

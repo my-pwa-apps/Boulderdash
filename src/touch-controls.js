@@ -18,7 +18,7 @@ export class TouchControls {
         if (this.isTouchDevice) {
             document.body.classList.add('touch-device');
             if (this.touchControlsDiv) {
-                this.touchControlsDiv.classList.remove('hidden');
+                this.touchControlsDiv.classList.add('hidden');
             }
             this.setupTouchControls();
             this.setupSwipeControls();

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Boulder Dash icon">
+  <rect width="192" height="192" rx="36" fill="#000000"/>
+  <path d="M96 16 152 72 96 176 40 72Z" fill="#AAFFEE"/>
+  <path d="M96 16 152 72H96Z" fill="#FFFFFF"/>
+  <path d="M40 72H96L68 124Z" fill="#0088FF"/>
+  <path d="M152 72H96L124 124Z" fill="#00CC55"/>
+  <path d="M68 124H124L96 176Z" fill="#AAFFEE"/>
+</svg>

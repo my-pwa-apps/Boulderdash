@@ -62,7 +62,6 @@ git clone https://github.com/your-username/boulderdash.git
 cd boulderdash
 
 # Start local server
-cd public
 python -m http.server 8000
 
 # Open browser

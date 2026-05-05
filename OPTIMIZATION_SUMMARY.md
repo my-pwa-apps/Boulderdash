@@ -25,8 +25,6 @@ Comprehensive optimization and enhancement of the Boulder Dash game with focus o
 - Offline support with fallback
 - Cache versioning and cleanup
 - Dynamic cache size limiting (50 items max)
-- Background sync placeholder
-- Push notification support
 - Message handling for cache control
 
 ### 2. 📱 Mobile Optimization

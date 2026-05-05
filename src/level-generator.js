@@ -1,6 +1,6 @@
-import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT, GAME_SETTINGS } from './constants.js';
-import { getRandomInt, createGrid, isInBounds, shuffleArray } from './utils.js';
-import { CLASSIC_CAVES, parsePattern } from './classic-levels.js';
+import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT, GAME_SETTINGS } from './constants.js?v=1.3.0';
+import { getRandomInt, isInBounds } from './utils.js?v=1.3.0';
+import { CLASSIC_CAVES, parsePattern } from './classic-levels.js?v=1.3.0';
 
 /**
  * Generate a level for the game
@@ -167,75 +167,6 @@ function enhanceGrid(grid, difficulty, level) {
 }
 
 /**
- * Add wall borders and some random interior walls
- * @param {Array<Array<number>>} grid - The game grid
- */
-function addWalls(grid) {
-    const width = grid[0].length;
-    const height = grid.length;
-    
-    // Add border walls
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            // Border walls
-            if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
-                grid[y][x] = ELEMENT_TYPES.WALL;
-            }
-        }
-    }
-    
-    // Add some random interior wall segments
-    const wallSegments = getRandomInt(5, 10);
-    
-    for (let i = 0; i < wallSegments; i++) {
-        // Decide if horizontal or vertical wall
-        const isHorizontal = Math.random() > 0.5;
-        
-        if (isHorizontal) {
-            const wallY = getRandomInt(5, height - 6);
-            const wallStartX = getRandomInt(5, width - 10);
-            const wallLength = getRandomInt(5, 10);
-            
-            // Add horizontal wall with gaps
-            for (let x = wallStartX; x < Math.min(width - 2, wallStartX + wallLength); x++) {
-                // Add some gaps for player to pass through
-                if (Math.random() > 0.7) continue;
-                grid[wallY][x] = ELEMENT_TYPES.WALL;
-            }
-        } else {
-            const wallX = getRandomInt(5, width - 6);
-            const wallStartY = getRandomInt(5, height - 10);
-            const wallLength = getRandomInt(5, 10);
-            
-            // Add vertical wall with gaps
-            for (let y = wallStartY; y < Math.min(height - 2, wallStartY + wallLength); y++) {
-                // Add some gaps for player to pass through
-                if (Math.random() > 0.7) continue;
-                grid[y][wallX] = ELEMENT_TYPES.WALL;
-            }
-        }
-    }
-}
-
-/**
- * Fill the empty grid with dirt
- * @param {Array<Array<number>>} grid - The game grid
- */
-function addDirt(grid) {
-    const width = grid[0].length;
-    const height = grid.length;
-    
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            // If cell is empty, fill with dirt
-            if (grid[y][x] === ELEMENT_TYPES.EMPTY) {
-                grid[y][x] = ELEMENT_TYPES.DIRT;
-            }
-        }
-    }
-}
-
-/**
  * Add boulders to the grid
  * @param {Array<Array<number>>} grid - The game grid
  * @param {number} count - Number of boulders to place
@@ -376,32 +307,3 @@ function placeElement(grid, element, minX, minY, maxX, maxY) {
     return { x: minX, y: minY };
 }
 
-/**
- * Validate a generated level to ensure it's playable
- * @param {Array<Array<number>>} grid - The game grid
- * @param {{x: number, y: number}} playerPos - Player position
- * @param {{x: number, y: number}} exitPos - Exit position
- * @returns {boolean} - Whether the level is valid
- */
-export function validateLevel(grid, playerPos, exitPos) {
-    // Check if player and exit are placed
-    if (!playerPos || !exitPos) return false;
-    
-    // Simple path validation - just check that there's a reasonable number of empty spaces
-    // For a more thorough check, we'd need a path finding algorithm
-    let emptyCount = 0;
-    
-    for (let y = 0; y < grid.length; y++) {
-        for (let x = 0; x < grid[0].length; x++) {
-            if (grid[y][x] === ELEMENT_TYPES.DIRT || 
-                grid[y][x] === ELEMENT_TYPES.DIAMOND ||
-                grid[y][x] === ELEMENT_TYPES.EMPTY) {
-                emptyCount++;
-            }
-        }
-    }
-    
-    // At least 60% of the grid should be traversable
-    const totalSize = grid.length * grid[0].length;
-    return emptyCount / totalSize > 0.6;
-}
