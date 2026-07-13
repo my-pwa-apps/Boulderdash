@@ -1,6 +1,5 @@
 import { generateAssets } from './assets.js?v=1.3.0';
-import { generateLevel } from './level-generator.js?v=1.3.0';
-import { GamePhysics } from './physics.js?v=1.3.0';
+import { GameCore } from './game-core.js?v=1.3.0';
 import { SoundManager } from './sound.js?v=1.3.0';
 import { TouchControls } from './touch-controls.js?v=1.3.0';
 import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js?v=1.3.0';
@@ -9,6 +8,7 @@ import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from '
 
 class Game {
     constructor() {
+        this.core = new GameCore();
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for no transparency
         this.ctx.imageSmoothingEnabled = false; // Ensure crisp pixel art
@@ -52,22 +52,11 @@ class Game {
         this.pausedByHelp = false;
         this.gameOver = false;
         this.levelComplete = false;
-        this.level = 1;
-        this.score = 0;
-        this.diamondsCollected = 0;
-        this.requiredDiamonds = 0;
-        this.timeRemaining = GAME_SETTINGS.INITIAL_TIME;
-        this.playerPosition = { x: 0, y: 0 };
-        this.exitOpen = false;
         this.playerDirection = 'RIGHT';
         this.playerNextDirection = null;
         this.keysHeld = new Set(); // Track currently held direction keys
         this.spacePressed = false;
-        this.enemies = [];
         this.enemyMoveCounter = 0;
-        this.grid = [];
-        this.physics = null;
-        this.exitPosition = null;
         this.animationFrameId = null;
         this.timerInterval = null;
         this.lastUpdateTime = 0;
@@ -106,7 +95,40 @@ class Game {
         
         this.drawTitleScreen();
     }
-    
+
+    // ---- Logical-state accessors -------------------------------------------
+    // The authoritative game state lives in `this.core` (a pure, testable rules
+    // engine). These accessors let the rest of the adapter keep using
+    // `this.grid`, `this.score`, etc. while reading/writing through the core.
+    get grid() { return this.core.grid; }
+    set grid(v) { this.core.grid = v; }
+    get physics() { return this.core.physics; }
+    set physics(v) { this.core.physics = v; }
+    get playerPosition() { return this.core.playerPosition; }
+    set playerPosition(v) { this.core.playerPosition = v; }
+    get exitPosition() { return this.core.exitPosition; }
+    set exitPosition(v) { this.core.exitPosition = v; }
+    get enemies() { return this.core.enemies; }
+    set enemies(v) { this.core.enemies = v; }
+    get level() { return this.core.level; }
+    set level(v) { this.core.level = v; }
+    get score() { return this.core.score; }
+    set score(v) { this.core.score = v; }
+    get diamondsCollected() { return this.core.diamondsCollected; }
+    set diamondsCollected(v) { this.core.diamondsCollected = v; }
+    get requiredDiamonds() { return this.core.requiredDiamonds; }
+    set requiredDiamonds(v) { this.core.requiredDiamonds = v; }
+    get exitOpen() { return this.core.exitOpen; }
+    set exitOpen(v) { this.core.exitOpen = v; }
+    get timeRemaining() { return this.core.timeRemaining; }
+    set timeRemaining(v) { this.core.timeRemaining = v; }
+    get diamondValue() { return this.core.diamondValue; }
+    set diamondValue(v) { this.core.diamondValue = v; }
+    get extraDiamondValue() { return this.core.extraDiamondValue; }
+    set extraDiamondValue(v) { this.core.extraDiamondValue = v; }
+    get levelName() { return this.core.levelName; }
+    set levelName(v) { this.core.levelName = v; }
+
     createBackgroundPattern() {
         // C64 Boulder Dash: pure black background, no patterns
         return C64.BLACK;
@@ -353,9 +375,9 @@ class Game {
         }
         this.timerInterval = setInterval(() => {
             if (this.isRunning && !this.gameOver && !this.levelComplete) {
-                this.timeRemaining--;
+                const { timedOut } = this.core.tickTime();
                 this.updateHUD();
-                if (this.timeRemaining <= 0) {
+                if (timedOut) {
                     this.handlePlayerDeath("Time's up!");
                 }
                 if (this.timeRemaining <= 15) {
@@ -373,17 +395,9 @@ class Game {
     }
     
     loadLevel(levelNumber) {
-        const levelData = generateLevel(levelNumber);
-        this.grid = levelData.grid;
-        this.playerPosition = { ...levelData.playerPosition };
-        this.exitPosition = levelData.exitPosition;
-        this.enemies = levelData.enemies;
-        this.requiredDiamonds = levelData.requiredDiamonds;
-        this.levelName = levelData.levelName || `Cave ${String.fromCharCode(64 + levelNumber)}`;
-        this.diamondsCollected = 0;
-        this.exitOpen = false;
-        this.diamondValue = levelData.diamondValue || GAME_SETTINGS.DIAMOND_VALUE;
-        this.extraDiamondValue = levelData.extraDiamondValue || this.diamondValue;
+        this.core.loadLevel(levelNumber);
+
+        // Reset adapter-only presentation state for the new level.
         this.particles = [];
         this.explosions = [];
         this.playerAnimationFrame = 0;
@@ -395,14 +409,7 @@ class Game {
         this.playerIsIdle = false;
         this.gameTickAccumulator = 0;
         this._lastHUD = {}; // Reset HUD cache for new level
-        
-        // Set time limit from level data or use default
-        this.timeRemaining = levelData.timeLimit || (GAME_SETTINGS.INITIAL_TIME + (levelNumber * 30));
-        
-        this.physics = new GamePhysics(this.grid);
-        const { x, y } = this.playerPosition;
-        this.grid[y][x] = ELEMENT_TYPES.PLAYER;
-        this.physics.setCell(x, y, ELEMENT_TYPES.PLAYER);
+
         this.updateHUD();
     }
     
@@ -527,9 +534,7 @@ class Game {
         }
         
         // Sync grid reference from physics (read-only, no clone needed)
-        if (this.physics) {
-            this.grid = this.physics.getGridRef();
-        }
+        this.core.syncGrid();
         
         this.playerAnimationCounter += cappedDelta;
         if (this.playerAnimationCounter > 150) {
@@ -590,8 +595,8 @@ class Game {
     
     updatePhysics() {
         if (!this.physics) return;
-        this.physics.update();
-        if (this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)) {
+        const { crushed } = this.core.stepPhysics();
+        if (crushed) {
             this.handlePlayerDeath('Crushed!');
         }
     }
@@ -940,34 +945,23 @@ class Game {
         this.playerIdleTimer = 0;
         this.playerIdleFrame = 0;
         
-        const result = this.physics.movePlayer(
-            this.playerPosition.x, 
-            this.playerPosition.y, 
-            direction,
-            this.exitOpen  // Pass exitOpen status to physics
-        );
+        const events = this.core.movePlayer(direction);
         
-        if (result.success) {
-            this.playerPosition.x = result.newX;
-            this.playerPosition.y = result.newY;
-            
-            if (result.collected) {
-                this.diamondsCollected++;
-                this.score += this.exitOpen ? this.extraDiamondValue : this.diamondValue;
+        if (events.success) {
+            if (events.collected) {
                 this.sound.play('collect');
-                if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
-                    this.exitOpen = true;
+                if (events.exitOpened) {
                     this.sound.play('exit');
                     this.screenFlash = 30; // Flash effect
                     this.createExitSparkles(); // Initial burst
                 }
             }
             
-            if (result.exit && this.exitOpen) {
+            if (events.reachedExit) {
                 this.completeLevel();
             }
             
-            if (result.crushed) {
+            if (events.crushed) {
                 this.handlePlayerDeath('Enemy contact!');
             }
             
@@ -978,14 +972,11 @@ class Game {
     handlePlayerGrab(direction) {
         if (!this.physics) return;
         this.playerDirection = direction;
-        const result = this.physics.grabItem(this.playerPosition.x, this.playerPosition.y, direction);
+        const events = this.core.grab(direction);
         
-        if (result.collected) {
-            this.diamondsCollected++;
-            this.score += this.exitOpen ? this.extraDiamondValue : this.diamondValue;
+        if (events.collected) {
             this.sound.play('collect');
-            if (this.diamondsCollected >= this.requiredDiamonds && !this.exitOpen) {
-                this.exitOpen = true;
+            if (events.exitOpened) {
                 this.sound.play('exit');
                 this.screenFlash = 30; // Flash effect
                 this.createExitSparkles(); // Initial burst
@@ -996,28 +987,15 @@ class Game {
     
     updateEnemies() {
         if (!this.physics) return;
-        this.enemies = this.physics.moveEnemies(this.enemies, this.playerPosition.x, this.playerPosition.y);
+        const { playerKilled, kills } = this.core.stepEnemies();
         
-        if (this.physics.checkEnemyCollision(this.playerPosition.x, this.playerPosition.y, this.enemies)) {
+        if (playerKilled) {
             this.handlePlayerDeath('Enemy contact!');
         }
         
-        const crushedEnemies = this.physics.checkEnemiesCrushed(this.enemies);
-        for (const idx of crushedEnemies.reverse()) {
-            const enemy = this.enemies[idx];
-            this.createCrashAnimation(enemy.x, enemy.y);
+        for (const kill of kills) {
+            this.createCrashAnimation(kill.x, kill.y);
             this.sound.play('crush');
-            
-            if (enemy.type === ELEMENT_TYPES.BUTTERFLY) {
-                // Butterflies explode into 3x3 diamonds
-                const newDiamonds = this.physics.explodeButterfly(enemy.x, enemy.y);
-                this.score += 100 + (newDiamonds * this.diamondValue);
-            } else {
-                // Fireflies explode into 3x3 empty space
-                this.physics.explodeFirefly(enemy.x, enemy.y);
-                this.score += 100;
-            }
-            this.enemies.splice(idx, 1);
         }
     }
     
