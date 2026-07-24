@@ -1,9 +1,15 @@
 {
   "name": "boulderdash-pwa",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/smoke.mjs && node tests/core.test.mjs"
+    "test": "node tests/smoke.mjs && node tests/core.test.mjs",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.1",
+    "http-server": "^14.1.1"
   }
 }

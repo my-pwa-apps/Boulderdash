@@ -1,4 +1,4 @@
-import { COLORS, ELEMENT_TYPES, TILE_SIZE, C64 } from './constants.js?v=1.4.2';
+import { COLORS, ELEMENT_TYPES, TILE_SIZE, C64 } from './constants.js?v=1.4.3';
 
 /**
  * C64 Boulder Dash - Authentic pixel art sprite generation

@@ -95,7 +95,7 @@ assert.ok(manifest.icons.every((icon) => icon.src.startsWith('./public/')), 'man
 const serviceWorker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
 const requiredCachedAssets = [
   './index.html',
-  './style.css?v=1.4.2',
+  './style.css?v=1.4.3',
   './manifest.json',
   './public/icon.svg',
   './public/icon-192.svg',
@@ -103,16 +103,16 @@ const requiredCachedAssets = [
   './public/press-start-2p-latin.woff2',
   './public/screenshot-narrow.png',
   './public/screenshot-wide.png',
-  './src/assets.js?v=1.4.2',
-  './src/classic-levels.js?v=1.4.2',
-  './src/constants.js?v=1.4.2',
-  './src/firebase-config.js?v=1.4.2',
-  './src/game.js?v=1.4.2',
-  './src/level-generator.js?v=1.4.2',
-  './src/physics.js?v=1.4.2',
-  './src/sound.js?v=1.4.2',
-  './src/touch-controls.js?v=1.4.2',
-  './src/utils.js?v=1.4.2'
+  './src/assets.js?v=1.4.3',
+  './src/classic-levels.js?v=1.4.3',
+  './src/constants.js?v=1.4.3',
+  './src/firebase-config.js?v=1.4.3',
+  './src/game.js?v=1.4.3',
+  './src/level-generator.js?v=1.4.3',
+  './src/physics.js?v=1.4.3',
+  './src/sound.js?v=1.4.3',
+  './src/touch-controls.js?v=1.4.3',
+  './src/utils.js?v=1.4.3'
 ];
 
 for (const asset of requiredCachedAssets) {

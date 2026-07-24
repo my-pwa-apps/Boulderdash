@@ -1,6 +1,6 @@
-import { generateLevel } from './level-generator.js?v=1.4.2';
-import { GamePhysics } from './physics.js?v=1.4.2';
-import { ELEMENT_TYPES, GAME_SETTINGS } from './constants.js?v=1.4.2';
+import { generateLevel } from './level-generator.js?v=1.4.3';
+import { GamePhysics } from './physics.js?v=1.4.3';
+import { ELEMENT_TYPES, GAME_SETTINGS } from './constants.js?v=1.4.3';
 
 /**
  * GameCore — pure game-state and rules engine.

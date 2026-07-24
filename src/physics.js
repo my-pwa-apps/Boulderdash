@@ -1,5 +1,5 @@
-import { ELEMENT_TYPES, DIRECTIONS } from './constants.js?v=1.4.2';
-import { isInBounds, cloneGrid } from './utils.js?v=1.4.2';
+import { ELEMENT_TYPES, DIRECTIONS } from './constants.js?v=1.4.3';
+import { isInBounds, cloneGrid } from './utils.js?v=1.4.3';
 
 /**
  * Handle the physics and game rules

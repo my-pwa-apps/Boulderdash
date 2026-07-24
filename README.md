@@ -261,6 +261,16 @@ PWA features require modern browsers with service worker support.
 - Some older browsers may not support all PWA features
 - Touch controls may overlap content on very small screens (<320px)
 
+## 🧪 Testing
+
+```bash
+npm test          # Headless rules, cave invariants, manifest, and service worker
+npm run test:e2e  # Browser progression through Cave A-P and into level 17
+npm run test:all  # Both suites
+```
+
+The Playwright progression test uses a localhost-only fixture to satisfy each cave's diamond quota and place Rockford beside its exit. It then enters every exit through real keyboard input and verifies the production completion, HUD, canvas, and next-level lifecycle. This proves full browser progression; it does not claim that an automated player solved each cave's puzzles.
+
 ## 🚧 Future Enhancements
 
 - [ ] Level editor

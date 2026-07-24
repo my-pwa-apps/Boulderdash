@@ -1,4 +1,4 @@
-import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js?v=1.4.2';
+import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js?v=1.4.3';
 
 /**
  * Sixteen original C64-style cave layouts, labeled A-P.

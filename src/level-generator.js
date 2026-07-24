@@ -1,6 +1,6 @@
-import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT, GAME_SETTINGS } from './constants.js?v=1.4.2';
-import { getRandomInt, isInBounds } from './utils.js?v=1.4.2';
-import { CLASSIC_CAVES, parsePattern } from './classic-levels.js?v=1.4.2';
+import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT, GAME_SETTINGS } from './constants.js?v=1.4.3';
+import { getRandomInt, isInBounds } from './utils.js?v=1.4.3';
+import { CLASSIC_CAVES, parsePattern } from './classic-levels.js?v=1.4.3';
 
 /**
  * Generate a level for the game

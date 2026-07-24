@@ -1,10 +1,10 @@
-import { generateAssets } from './assets.js?v=1.4.2';
-import { GameCore } from './game-core.js?v=1.4.2';
-import { SoundManager } from './sound.js?v=1.4.2';
-import { TouchControls } from './touch-controls.js?v=1.4.2';
-import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js?v=1.4.2';
-import { formatTime, debounce } from './utils.js?v=1.4.2';
-import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js?v=1.4.2';
+import { generateAssets } from './assets.js?v=1.4.3';
+import { GameCore } from './game-core.js?v=1.4.3';
+import { SoundManager } from './sound.js?v=1.4.3';
+import { TouchControls } from './touch-controls.js?v=1.4.3';
+import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js?v=1.4.3';
+import { formatTime, debounce } from './utils.js?v=1.4.3';
+import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js?v=1.4.3';
 
 class Game {
     constructor() {
@@ -58,6 +58,7 @@ class Game {
         this.isDying = false;
         this.deathTimeout = null;
         this.caveIntroUntil = 0;
+        this.levelTransitionDelay = 3000;
         this.playerDirection = 'RIGHT';
         this.playerNextDirection = null;
         this.keysHeld = new Set(); // Track currently held direction keys
@@ -1132,7 +1133,7 @@ class Game {
         
         setTimeout(() => {
             if (this.levelComplete) this.nextLevel();
-        }, 3000);
+        }, this.levelTransitionDelay);
     }
     
     nextLevel() {
@@ -1468,4 +1469,47 @@ class Game {
 
 document.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
+    const isLocalTest = ['localhost', '127.0.0.1'].includes(window.location.hostname) &&
+        new URLSearchParams(window.location.search).has('e2e');
+
+    if (isLocalTest) {
+        game.levelTransitionDelay = 20;
+        window.__BOULDER_DASH_E2E__ = {
+            prepareExit() {
+                const exit = game.exitPosition;
+                const directions = [
+                    { name: 'ArrowUp', dx: 0, dy: 1 },
+                    { name: 'ArrowRight', dx: -1, dy: 0 },
+                    { name: 'ArrowDown', dx: 0, dy: -1 },
+                    { name: 'ArrowLeft', dx: 1, dy: 0 }
+                ];
+                const approach = directions
+                    .map((direction) => ({
+                        ...direction,
+                        x: exit.x + direction.dx,
+                        y: exit.y + direction.dy
+                    }))
+                    .find(({ x, y }) => x >= 0 && y >= 0 && x < GRID_WIDTH && y < GRID_HEIGHT);
+
+                game.physics.setCell(game.playerPosition.x, game.playerPosition.y, ELEMENT_TYPES.EMPTY);
+                game.physics.setCell(approach.x, approach.y, ELEMENT_TYPES.PLAYER);
+                game.physics.setCell(exit.x, exit.y, ELEMENT_TYPES.EXIT);
+                game.playerPosition = { x: approach.x, y: approach.y };
+                game.diamondsCollected = game.requiredDiamonds;
+                game.exitOpen = true;
+                game.caveIntroUntil = 0;
+                game.updateHUD();
+                game.render();
+                return { key: approach.name, level: game.level };
+            },
+            state() {
+                return {
+                    level: game.level,
+                    levelComplete: game.levelComplete,
+                    gameOver: game.gameOver,
+                    lives: game.lives
+                };
+            }
+        };
+    }
 });
