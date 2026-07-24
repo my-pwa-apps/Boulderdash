@@ -1,7 +1,7 @@
 {
   "name": "Boulder Dash - Retro Arcade Game",
   "short_name": "Boulder Dash",
-  "description": "Classic Boulder Dash arcade game - Collect diamonds, avoid falling rocks, and escape! Retro 80s gaming action.",
+  "description": "A C64-inspired cave-digging arcade homage with original cave layouts.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -34,15 +34,15 @@
   ],
   "screenshots": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect width='540' height='720' fill='%23000'/><text x='270' y='360' font-size='200' text-anchor='middle' fill='%23ffff00'>BD</text></svg>",
-      "sizes": "540x720",
-      "type": "image/svg+xml",
+      "src": "./public/screenshot-narrow.png",
+      "sizes": "810x936",
+      "type": "image/png",
       "form_factor": "narrow"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'><rect width='1280' height='720' fill='%23000'/><text x='640' y='400' font-size='200' text-anchor='middle' fill='%23ffff00'>BOULDER DASH</text></svg>",
-      "sizes": "1280x720",
-      "type": "image/svg+xml",
+      "src": "./public/screenshot-wide.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
       "form_factor": "wide"
     }
   ],

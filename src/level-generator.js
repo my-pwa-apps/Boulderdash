@@ -1,16 +1,16 @@
-import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT, GAME_SETTINGS } from './constants.js?v=1.3.0';
-import { getRandomInt, isInBounds } from './utils.js?v=1.3.0';
-import { CLASSIC_CAVES, parsePattern } from './classic-levels.js?v=1.3.0';
+import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT, GAME_SETTINGS } from './constants.js?v=1.4.2';
+import { getRandomInt, isInBounds } from './utils.js?v=1.4.2';
+import { CLASSIC_CAVES, parsePattern } from './classic-levels.js?v=1.4.2';
 
 /**
  * Generate a level for the game
- * Levels 1-16: Classic Boulder Dash caves
+ * Levels 1-16: Hand-authored C64-style caves
  * Levels 17+: Procedurally generated based on classic patterns
  * @param {number} level - Current level number (affects difficulty)
  * @returns {Object} - Level data
  */
 export function generateLevel(level) {
-    // For levels 1-16, use classic caves
+    // For levels 1-16, use hand-authored caves.
     if (level >= 1 && level <= 16) {
         return generateClassicLevel(level);
     }
@@ -20,7 +20,7 @@ export function generateLevel(level) {
 }
 
 /**
- * Generate a classic Boulder Dash cave (levels 1-16)
+ * Generate a hand-authored cave (levels 1-16).
  */
 function generateClassicLevel(level) {
     const caveIndex = level - 1;
@@ -72,19 +72,18 @@ function generateProceduralLevel(level) {
     // Add more diamonds
     const allDiamonds = addDiamonds(grid, diamondCount);
     
-    // Place player (reuse from template or find new position)
+    // Place exactly one player (reuse from template or find a new position).
     let playerPos = parsed.playerPos;
+    clearElement(grid, ELEMENT_TYPES.PLAYER);
     if (!playerPos || Math.random() > 0.5) {
         playerPos = placeElement(grid, ELEMENT_TYPES.PLAYER, 2, 2, 6, 6);
+    } else {
+        grid[playerPos.y][playerPos.x] = ELEMENT_TYPES.PLAYER;
     }
-    
-    // Place exit (reuse from template or find new position)
-    let exitPos = parsed.exitPos;
-    if (!exitPos || Math.random() > 0.5) {
-        exitPos = placeElement(grid, ELEMENT_TYPES.EXIT, 
-            GRID_WIDTH - 7, GRID_HEIGHT - 7, 
-            GRID_WIDTH - 2, GRID_HEIGHT - 2);
-    }
+
+    // Place exactly one exit in the player's reachable region.
+    clearElement(grid, ELEMENT_TYPES.EXIT);
+    const exitPos = placeReachableExit(grid, playerPos);
     
     // Add more enemies with direction for wall-following
     const allEnemies = [...parsed.enemies];
@@ -97,8 +96,10 @@ function generateProceduralLevel(level) {
         }
     }
     
-    // Calculate required diamonds (gets harder)
-    const requiredDiamonds = Math.ceil(allDiamonds.length * (0.65 + difficulty * 0.02));
+    // Calculate the quota from every diamond that is actually present.
+    const reachableCells = findReachableCells(grid, playerPos);
+    const reachableDiamonds = reachableCells.filter(({ x, y }) => grid[y][x] === ELEMENT_TYPES.DIAMOND).length;
+    const requiredDiamonds = Math.ceil(reachableDiamonds * (0.65 + difficulty * 0.02));
     
     // Calculate time limit (gets tighter)
     const timeLimit = Math.max(90, template.timeLimit - difficulty * 5);
@@ -107,7 +108,7 @@ function generateProceduralLevel(level) {
         grid,
         playerPosition: playerPos,
         exitPosition: exitPos,
-        diamonds: allDiamonds,
+        diamonds: findElements(grid, ELEMENT_TYPES.DIAMOND),
         enemies: allEnemies,
         requiredDiamonds,
         levelNumber: level,
@@ -116,6 +117,68 @@ function generateProceduralLevel(level) {
         diamondValue: template.diamondValue || GAME_SETTINGS.DIAMOND_VALUE,
         extraDiamondValue: template.extraDiamondValue || template.diamondValue || GAME_SETTINGS.DIAMOND_VALUE
     };
+}
+
+function clearElement(grid, element) {
+    for (const row of grid) {
+        for (let x = 0; x < row.length; x++) {
+            if (row[x] === element) row[x] = ELEMENT_TYPES.DIRT;
+        }
+    }
+}
+
+function findElements(grid, element) {
+    const positions = [];
+    for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < grid[y].length; x++) {
+            if (grid[y][x] === element) positions.push({ x, y });
+        }
+    }
+    return positions;
+}
+
+function findReachableCells(grid, playerPos) {
+    const blocked = new Set([
+        ELEMENT_TYPES.WALL,
+        ELEMENT_TYPES.MAGIC_WALL,
+        ELEMENT_TYPES.BOULDER,
+        ELEMENT_TYPES.ENEMY,
+        ELEMENT_TYPES.BUTTERFLY
+    ]);
+    const queue = [playerPos];
+    const visited = new Set([`${playerPos.x},${playerPos.y}`]);
+
+    for (let index = 0; index < queue.length; index++) {
+        const current = queue[index];
+        for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+            const x = current.x + dx;
+            const y = current.y + dy;
+            const key = `${x},${y}`;
+            if (!isInBounds(x, y, GRID_WIDTH, GRID_HEIGHT) || visited.has(key) || blocked.has(grid[y][x])) continue;
+            visited.add(key);
+            queue.push({ x, y });
+        }
+    }
+
+    return queue;
+}
+
+function placeReachableExit(grid, playerPos) {
+    const queue = findReachableCells(grid, playerPos);
+    const candidates = queue.filter(({ x, y }) =>
+        grid[y][x] === ELEMENT_TYPES.DIRT && x >= GRID_WIDTH - 8 && y >= GRID_HEIGHT - 8
+    );
+
+    const fallback = queue.filter(({ x, y }) =>
+        (x !== playerPos.x || y !== playerPos.y) && grid[y][x] === ELEMENT_TYPES.DIRT
+    );
+    const pool = candidates.length > 0 ? candidates : fallback;
+    const exitPos = pool[Math.floor(Math.random() * pool.length)] || {
+        x: Math.min(playerPos.x + 1, GRID_WIDTH - 2),
+        y: playerPos.y
+    };
+    grid[exitPos.y][exitPos.x] = ELEMENT_TYPES.EXIT;
+    return exitPos;
 }
 
 /**

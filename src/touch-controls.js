@@ -6,6 +6,7 @@ export class TouchControls {
         this.game = game;
         this.touchControlsDiv = document.getElementById('touchControls');
         this.grabButton = document.getElementById('grabButton');
+        this.pauseButton = document.getElementById('pauseButton');
         this.isGrabbing = false;
         this.activeDirection = null; // Currently held touch direction
         this.isTouchDevice = this.detectTouchDevice();
@@ -15,28 +16,33 @@ export class TouchControls {
         this.swipeStartY = 0;
         this.swipeThreshold = 30; // minimum px to register a swipe
         
-        if (this.isTouchDevice) {
-            document.body.classList.add('touch-device');
-            if (this.touchControlsDiv) {
-                this.touchControlsDiv.classList.add('hidden');
-            }
-            this.setupTouchControls();
-            this.setupSwipeControls();
-            // Show touch-friendly instruction
-            const controlsInfo = document.querySelector('.controls-info p');
-            if (controlsInfo) {
-                controlsInfo.textContent = 'Tap buttons or swipe to move';
-            }
+        if (this.touchControlsDiv) {
+            this.touchControlsDiv.classList.add('hidden');
         }
+        this.setupTouchControls();
+        this.setupSwipeControls();
+        this.updateInputMode();
     }
     
     /**
      * Detect if device supports touch
      */
     detectTouchDevice() {
-        return (('ontouchstart' in window) ||
-                (navigator.maxTouchPoints > 0) ||
-                (navigator.msMaxTouchPoints > 0));
+        const coarsePointer = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+        const compactTouchScreen = navigator.maxTouchPoints > 0 && window.innerWidth <= 900;
+        return coarsePointer || compactTouchScreen;
+    }
+
+    updateInputMode() {
+        this.isTouchDevice = this.detectTouchDevice();
+        document.body.classList.toggle('touch-device', this.isTouchDevice);
+        const controlsInfo = document.querySelector('.controls-info p');
+        if (controlsInfo) {
+            controlsInfo.textContent = this.isTouchDevice
+                ? 'Tap buttons or swipe to move'
+                : 'Use arrow keys or WASD to move';
+        }
+        if (!this.isTouchDevice) this.hide();
     }
     
     /**
@@ -138,6 +144,11 @@ export class TouchControls {
                 this.grabButton.classList.remove('active');
             });
         }
+
+        this.pauseButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.game.togglePause();
+        });
         
         // Prevent default touch behaviors on the game canvas
         const canvas = document.getElementById('gameCanvas');
@@ -250,6 +261,7 @@ export class TouchControls {
      * Show touch controls
      */
     show() {
+        this.updateInputMode();
         if (this.isTouchDevice && this.touchControlsDiv) {
             this.touchControlsDiv.classList.remove('hidden');
         }

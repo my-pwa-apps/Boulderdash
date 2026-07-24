@@ -2,7 +2,7 @@
 // Provides offline support, caching, and performance optimization.
 
 const DEBUG = false;
-const CACHE_VERSION = 'boulderdash-v1.3.0';
+const CACHE_VERSION = 'boulderdash-v1.4.2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const MAX_DYNAMIC_CACHE_SIZE = 50;
@@ -10,21 +10,24 @@ const MAX_DYNAMIC_CACHE_SIZE = 50;
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.3.0',
+  './style.css?v=1.4.2',
   './manifest.json',
   './public/icon.svg',
   './public/icon-192.svg',
   './public/icon-512.svg',
-  './src/assets.js?v=1.3.0',
-  './src/classic-levels.js?v=1.3.0',
-  './src/constants.js?v=1.3.0',
-  './src/firebase-config.js?v=1.3.0',
-  './src/game.js?v=1.3.0',
-  './src/level-generator.js?v=1.3.0',
-  './src/physics.js?v=1.3.0',
-  './src/sound.js?v=1.3.0',
-  './src/touch-controls.js?v=1.3.0',
-  './src/utils.js?v=1.3.0'
+  './public/press-start-2p-latin.woff2',
+  './public/screenshot-narrow.png',
+  './public/screenshot-wide.png',
+  './src/assets.js?v=1.4.2',
+  './src/classic-levels.js?v=1.4.2',
+  './src/constants.js?v=1.4.2',
+  './src/firebase-config.js?v=1.4.2',
+  './src/game.js?v=1.4.2',
+  './src/level-generator.js?v=1.4.2',
+  './src/physics.js?v=1.4.2',
+  './src/sound.js?v=1.4.2',
+  './src/touch-controls.js?v=1.4.2',
+  './src/utils.js?v=1.4.2'
 ];
 
 const STATIC_ASSET_URLS = new Set(

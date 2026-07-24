@@ -1,6 +1,6 @@
-import { generateLevel } from './level-generator.js?v=1.3.0';
-import { GamePhysics } from './physics.js?v=1.3.0';
-import { ELEMENT_TYPES, GAME_SETTINGS } from './constants.js?v=1.3.0';
+import { generateLevel } from './level-generator.js?v=1.4.2';
+import { GamePhysics } from './physics.js?v=1.4.2';
+import { ELEMENT_TYPES, GAME_SETTINGS } from './constants.js?v=1.4.2';
 
 /**
  * GameCore — pure game-state and rules engine.
@@ -100,11 +100,9 @@ export class GameCore {
             if (result.exit && this.exitOpen) {
                 events.reachedExit = true;
             }
-
-            if (result.crushed) {
-                events.crushed = true;
-            }
         }
+
+        events.crushed = result.crushed === true;
 
         return events;
     }
@@ -135,11 +133,13 @@ export class GameCore {
      * @returns {{crushed:boolean}}
      */
     stepPhysics() {
-        if (!this.physics) return { crushed: false };
+        if (!this.physics) return { crushed: false, updated: false, movement: null };
 
-        this.physics.update();
+        const updated = this.physics.update();
         return {
-            crushed: this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y)
+            crushed: this.physics.isPlayerCrushed(this.playerPosition.x, this.playerPosition.y),
+            updated,
+            movement: this.physics.lastUpdatedCell?.type || null
         };
     }
 

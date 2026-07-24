@@ -1,5 +1,13 @@
 /* C64 Boulder Dash - Authentic Commodore 64 styling */
 
+@font-face {
+    font-family: 'Press Start 2P';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('./public/press-start-2p-latin.woff2') format('woff2');
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -60,7 +68,7 @@ h1 {
 
 .game-info {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
     gap: 8px;
     width: 100%;
@@ -80,7 +88,8 @@ h1 {
     font-size: clamp(0.55rem, 1.8vw, 0.8rem);
     text-transform: uppercase;
     text-align: center;
-    min-width: 85px;
+    min-width: 0;
+    flex: 1;
 }
 
 .game-info div:hover {
@@ -93,6 +102,18 @@ h1 {
 #diamonds { color: #AAFFEE; border-color: #333333; } /* Cyan */
 #time { color: #FF7777; border-color: #333333; }  /* Light red */
 #level { color: #AAFF66; border-color: #333333; }  /* Light green */
+#lives { color: #FFFFFF; border-color: #333333; }
+
+.playfield-viewport {
+    position: relative;
+    overflow: hidden;
+    max-width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
 #gameCanvas {
     border: 3px solid #333333;
@@ -108,6 +129,7 @@ h1 {
     display: block;
     margin: 0 auto;
     z-index: 5;
+    transform-origin: top left;
 }
 
 .game-controls {
@@ -157,6 +179,11 @@ button:hover {
 button:active {
     background: #BBBBBB;
     color: #000000;
+}
+
+button:focus-visible {
+    outline: 3px solid #FFFFFF;
+    outline-offset: 2px;
 }
 
 #startButton { 
@@ -247,9 +274,9 @@ button:active {
     right: 0;
     z-index: 2000;
     display: none;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+    padding: 8px max(16px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     background: rgba(0, 0, 0, 0.85);
     border-top: 2px solid #333;
     pointer-events: none;
@@ -274,8 +301,8 @@ body.touch-device.game-running .touch-controls {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     gap: 4px;
-    width: min(55vw, 210px);
-    height: min(55vw, 210px);
+    width: min(42vw, 176px);
+    height: min(42vw, 176px);
 }
 
 .dpad-btn {
@@ -313,17 +340,38 @@ body.touch-device.game-running .touch-controls {
 
 .dpad-up { grid-column: 2; grid-row: 1; }
 .dpad-left { grid-column: 1; grid-row: 2; }
-.dpad-center { 
-    grid-column: 2; grid-row: 2; 
-    font-size: clamp(0.5rem, 2.5vw, 0.7rem); 
+.action-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.action-btn {
+    width: min(19vw, 76px);
+    height: min(19vw, 76px);
+    margin: 0;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0.62rem;
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+
+.grab-btn {
     background: #880000;
     border-color: #FF7777;
     color: #fff;
 }
-.dpad-center.active,
-.dpad-center:active {
+.grab-btn.active,
+.grab-btn:active {
     background: #cc2200;
     border-color: #ff9977;
+}
+.pause-btn {
+    background: #333333;
+    color: #EEEE77;
+    border-color: #777777;
+    font-size: 1rem;
 }
 .dpad-right { grid-column: 3; grid-row: 2; }
 .dpad-down { grid-column: 2; grid-row: 3; }
@@ -332,32 +380,55 @@ body.touch-device.game-running .touch-controls {
 @media (max-width: 600px) {
     .game-container { padding: 5px; }
     .game-info { padding: 5px; gap: 5px; }
-    .game-info div { padding: 4px 8px; min-width: auto; flex: 1; }
+    .game-info { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .game-info div { padding: 4px 2px; min-width: 0; }
     h1 { margin-bottom: 5px; }
     button { padding: 10px 16px; margin: 2px; }
 }
 
 /* When touch controls are visible, adjust game layout */
 body.touch-device.game-running .game-container {
-    height: auto;
-    min-height: 0;
-    max-height: 100vh;
-    max-height: 100dvh;
-    padding-bottom: calc(180px + env(safe-area-inset-bottom));
+    height: calc(100dvh - min(42vw, 176px) - 16px - env(safe-area-inset-bottom));
+    padding-bottom: 5px;
 }
 
-body.touch-device.game-running #gameCanvas {
-    max-height: 45vh;
-    max-height: 45dvh;
+body.touch-device.game-running.camera-mode .playfield-viewport {
+    width: 100%;
+    max-height: none;
+    border: 3px solid #333333;
+    background: #000;
+}
+
+body.touch-device.game-running.camera-mode #gameCanvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    margin: 0;
 }
 
 body.touch-device.game-running .game-controls {
-    margin-top: 5px;
-    padding: 5px;
+    margin-top: 3px;
+    padding: 2px;
 }
 
 body.touch-device.game-running .controls-info p {
-    margin-bottom: 5px;
+    display: none;
+}
+
+body.touch-device.game-running .game-controls button {
+    padding: 6px 10px;
+    font-size: 0.58rem;
+}
+
+body.touch-device.game-running #muteButton {
+    position: static !important;
+    width: 34px;
+    height: 30px;
+    font-size: 0.9rem;
+    vertical-align: middle;
 }
 
 /* Landscape orientation on mobile */
@@ -365,12 +436,13 @@ body.touch-device.game-running .controls-info p {
     body.touch-device.game-running .game-header h1 { display: none; }
     body.touch-device.game-running .game-info { margin-bottom: 2px; padding: 2px 5px; }
     body.touch-device.game-running .game-info div { padding: 2px 6px; font-size: 0.5rem; }
-    body.touch-device.game-running .game-container { padding: 2px 2px calc(150px + env(safe-area-inset-bottom)); }
+    body.touch-device.game-running .game-container { height: 100dvh; padding: 2px; padding-right: min(45vw, 330px); }
     body.touch-device.game-running .game-controls { margin-top: 2px; padding: 2px; }
     body.touch-device.game-running #gameCanvas { max-height: 50vh; max-height: 50dvh; }
     
-    .touch-controls { padding: 5px; }
-    .dpad { width: min(40vw, 160px); height: min(40vw, 160px); }
+    .touch-controls { left: auto; top: 0; width: min(45vw, 330px); flex-direction: column; padding: 6px; border-top: 0; border-left: 2px solid #333; }
+    .dpad { width: min(36vh, 168px); height: min(36vh, 168px); }
+    .action-btn { width: min(16vh, 72px); height: min(16vh, 72px); }
 }
 
 .hidden { display: none !important; }

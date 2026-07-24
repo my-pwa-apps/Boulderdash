@@ -14,6 +14,60 @@ for (let level = 1; level <= 16; level++) {
   assert.equal(levelData.grid[levelData.exitPosition.y][levelData.exitPosition.x], ELEMENT_TYPES.EXIT, `level ${level} exit cell`);
 }
 
+function withSeed(seed, callback) {
+  const originalRandom = Math.random;
+  let state = seed >>> 0;
+  Math.random = () => {
+    state = (1664525 * state + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+  try {
+    return callback();
+  } finally {
+    Math.random = originalRandom;
+  }
+}
+
+function getReachableCells(levelData) {
+  const blocked = new Set([
+    ELEMENT_TYPES.WALL,
+    ELEMENT_TYPES.MAGIC_WALL,
+    ELEMENT_TYPES.BOULDER,
+    ELEMENT_TYPES.ENEMY,
+    ELEMENT_TYPES.BUTTERFLY
+  ]);
+  const queue = [levelData.playerPosition];
+  const visited = new Set([`${levelData.playerPosition.x},${levelData.playerPosition.y}`]);
+  for (let index = 0; index < queue.length; index++) {
+    const current = queue[index];
+    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+      const x = current.x + dx;
+      const y = current.y + dy;
+      const key = `${x},${y}`;
+      if (x < 0 || y < 0 || x >= GRID_WIDTH || y >= GRID_HEIGHT || visited.has(key)) continue;
+      if (blocked.has(levelData.grid[y][x])) continue;
+      visited.add(key);
+      queue.push({ x, y });
+    }
+  }
+  return visited;
+}
+
+for (let seed = 1; seed <= 8; seed++) {
+  withSeed(seed, () => {
+    for (let level = 17; level <= 32; level++) {
+      const levelData = generateLevel(level);
+      const cells = levelData.grid.flat();
+      assert.equal(cells.filter((cell) => cell === ELEMENT_TYPES.PLAYER).length, 1, `seed ${seed} level ${level} player count`);
+      assert.equal(cells.filter((cell) => cell === ELEMENT_TYPES.EXIT).length, 1, `seed ${seed} level ${level} exit count`);
+      const reachable = getReachableCells(levelData);
+      const reachableDiamonds = levelData.diamonds.filter(({ x, y }) => reachable.has(`${x},${y}`)).length;
+      assert.ok(levelData.requiredDiamonds <= reachableDiamonds, `seed ${seed} level ${level} attainable quota`);
+      assert.equal(reachable.has(`${levelData.exitPosition.x},${levelData.exitPosition.y}`), true, `seed ${seed} level ${level} reachable exit`);
+    }
+  });
+}
+
 {
   const grid = [
     [ELEMENT_TYPES.WALL, ELEMENT_TYPES.WALL, ELEMENT_TYPES.WALL, ELEMENT_TYPES.WALL],
@@ -41,21 +95,24 @@ assert.ok(manifest.icons.every((icon) => icon.src.startsWith('./public/')), 'man
 const serviceWorker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
 const requiredCachedAssets = [
   './index.html',
-  './style.css?v=1.3.0',
+  './style.css?v=1.4.2',
   './manifest.json',
   './public/icon.svg',
   './public/icon-192.svg',
   './public/icon-512.svg',
-  './src/assets.js?v=1.3.0',
-  './src/classic-levels.js?v=1.3.0',
-  './src/constants.js?v=1.3.0',
-  './src/firebase-config.js?v=1.3.0',
-  './src/game.js?v=1.3.0',
-  './src/level-generator.js?v=1.3.0',
-  './src/physics.js?v=1.3.0',
-  './src/sound.js?v=1.3.0',
-  './src/touch-controls.js?v=1.3.0',
-  './src/utils.js?v=1.3.0'
+  './public/press-start-2p-latin.woff2',
+  './public/screenshot-narrow.png',
+  './public/screenshot-wide.png',
+  './src/assets.js?v=1.4.2',
+  './src/classic-levels.js?v=1.4.2',
+  './src/constants.js?v=1.4.2',
+  './src/firebase-config.js?v=1.4.2',
+  './src/game.js?v=1.4.2',
+  './src/level-generator.js?v=1.4.2',
+  './src/physics.js?v=1.4.2',
+  './src/sound.js?v=1.4.2',
+  './src/touch-controls.js?v=1.4.2',
+  './src/utils.js?v=1.4.2'
 ];
 
 for (const asset of requiredCachedAssets) {

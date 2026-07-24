@@ -1,7 +1,7 @@
-import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js?v=1.3.0';
+import { ELEMENT_TYPES, GRID_WIDTH, GRID_HEIGHT } from './constants.js?v=1.4.2';
 
 /**
- * Original Boulder Dash cave definitions (16 classic caves A-P)
+ * Sixteen original C64-style cave layouts, labeled A-P.
  * All patterns are exactly 40 chars wide x 22 rows tall to match GRID_WIDTH x GRID_HEIGHT.
  * 
  * Legend:
@@ -209,8 +209,8 @@ export const CLASSIC_CAVES = [
         enemies: 6
     },
     {
-        // Cave G: "Amoeba"
-        name: "AMOEBA",
+        // Cave G: gem-rich open challenge
+        name: "GEM RUSH",
         timeLimit: 200,
         diamondsRequired: 20,
         diamondValue: 5,

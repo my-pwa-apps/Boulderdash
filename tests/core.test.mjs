@@ -189,6 +189,19 @@ test('an enemy that steps onto the player kills them', () => {
   assert.equal(kills.length, 0);
 });
 
+test('walking into an enemy kills the player without moving them', () => {
+  const core = makeCore([
+    [T.WALL, T.WALL, T.WALL, T.WALL],
+    [T.WALL, T.PLAYER, T.ENEMY, T.WALL],
+    [T.WALL, T.WALL, T.WALL, T.WALL]
+  ], { x: 1, y: 1 });
+
+  const ev = core.movePlayer('RIGHT');
+  assert.equal(ev.success, false);
+  assert.equal(ev.crushed, true);
+  assert.deepEqual(core.playerPosition, { x: 1, y: 1 });
+});
+
 // --- Butterfly crush → diamonds + score ------------------------------------
 test('a crushed butterfly explodes into diamonds and scores', () => {
   const core = makeCore([

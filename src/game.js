@@ -1,10 +1,10 @@
-import { generateAssets } from './assets.js?v=1.3.0';
-import { GameCore } from './game-core.js?v=1.3.0';
-import { SoundManager } from './sound.js?v=1.3.0';
-import { TouchControls } from './touch-controls.js?v=1.3.0';
-import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js?v=1.3.0';
-import { formatTime, debounce } from './utils.js?v=1.3.0';
-import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js?v=1.3.0';
+import { generateAssets } from './assets.js?v=1.4.2';
+import { GameCore } from './game-core.js?v=1.4.2';
+import { SoundManager } from './sound.js?v=1.4.2';
+import { TouchControls } from './touch-controls.js?v=1.4.2';
+import { TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, ELEMENT_TYPES, KEY_MAPPINGS, GAME_SETTINGS, C64, DIRECTIONS } from './constants.js?v=1.4.2';
+import { formatTime, debounce } from './utils.js?v=1.4.2';
+import { initializeFirebase, saveHighScore, getHighScores, logGameEvent } from './firebase-config.js?v=1.4.2';
 
 class Game {
     constructor() {
@@ -42,6 +42,7 @@ class Game {
         this.diamondsElement = document.getElementById('diamonds');
         this.timeElement = document.getElementById('time');
         this.levelElement = document.getElementById('level');
+        this.livesElement = document.getElementById('lives');
         this.startButton = document.getElementById('startButton');
         this.restartButton = document.getElementById('restartButton');
         this.helpButton = document.getElementById('helpButton');
@@ -52,6 +53,11 @@ class Game {
         this.pausedByHelp = false;
         this.gameOver = false;
         this.levelComplete = false;
+        this.maxLives = 3;
+        this.lives = this.maxLives;
+        this.isDying = false;
+        this.deathTimeout = null;
+        this.caveIntroUntil = 0;
         this.playerDirection = 'RIGHT';
         this.playerNextDirection = null;
         this.keysHeld = new Set(); // Track currently held direction keys
@@ -257,12 +263,26 @@ class Game {
     }
     
     handleResize() {
-        const container = this.canvas.parentElement;
+        this.touchControls?.updateInputMode();
+        const viewport = this.canvas.parentElement;
+        const container = this.canvas.closest('.game-container');
         if (!container) return;
         
         // Get available space for canvas
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
+        const cameraMode = this.touchControls?.isTouchDevice && viewportWidth <= 600 && viewportHeight > 500;
+        document.body.classList.toggle('camera-mode', cameraMode);
+
+        if (cameraMode && viewport) {
+            const tileSize = Math.max(16, Math.min(20, Math.floor(viewportWidth / 20)));
+            this.canvas.style.width = `${GRID_WIDTH * tileSize}px`;
+            this.canvas.style.height = `${GRID_HEIGHT * tileSize}px`;
+            requestAnimationFrame(() => this.updateCameraTransform());
+            return;
+        }
+
+        this.canvas.style.transform = '';
         
         // Calculate available height (viewport minus header, HUD, controls, and margins)
         const headerHeight = document.querySelector('.game-header')?.offsetHeight || 150;
@@ -293,9 +313,25 @@ class Game {
         this.canvas.style.width = `${Math.floor(width)}px`;
         this.canvas.style.height = `${Math.floor(height)}px`;
     }
+
+    updateCameraTransform() {
+        if (!document.body.classList.contains('camera-mode')) return;
+        const viewport = this.canvas.parentElement;
+        if (!viewport || !this.playerPosition) return;
+
+        const renderedTile = this.canvas.offsetWidth / GRID_WIDTH;
+        const maxX = Math.max(0, this.canvas.offsetWidth - viewport.clientWidth);
+        const maxY = Math.max(0, this.canvas.offsetHeight - viewport.clientHeight);
+        const playerCenterX = (this.playerPosition.x + 0.5) * renderedTile;
+        const playerCenterY = (this.playerPosition.y + 0.5) * renderedTile;
+        const offsetX = Math.max(0, Math.min(maxX, playerCenterX - viewport.clientWidth / 2));
+        const offsetY = Math.max(0, Math.min(maxY, playerCenterY - viewport.clientHeight / 2));
+        this.canvas.style.transform = `translate(${-Math.round(offsetX)}px, ${-Math.round(offsetY)}px)`;
+    }
     
     startGame(isDemoMode = false) {
         this.cancelDemoTimeout();
+        if (this.deathTimeout) clearTimeout(this.deathTimeout);
         // Cancel title screen animation
         if (this.titleScreenFrameId) {
             cancelAnimationFrame(this.titleScreenFrameId);
@@ -309,6 +345,8 @@ class Game {
         this.pausedByHelp = false;
         this.gameOver = false;
         this.levelComplete = false;
+        this.isDying = false;
+        this.lives = this.maxLives;
         
         if (!isDemoMode) {
             this.startButton.classList.add('hidden');
@@ -341,7 +379,7 @@ class Game {
         if (!this.isRunning) return;
         this.isRunning = false;
         this.isPaused = true;
-        this.setGameplayUiState(false);
+        this.setGameplayUiState(!this.demoMode);
         this.stopTimer();
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
@@ -360,7 +398,7 @@ class Game {
     }
     
     togglePause() {
-        if (this.gameOver || this.levelComplete || this.demoMode) return;
+        if (this.gameOver || this.levelComplete || this.isDying || this.demoMode) return;
         if (this.isRunning) {
             this.pauseGame();
         } else if (this.isPaused) {
@@ -396,6 +434,7 @@ class Game {
     
     loadLevel(levelNumber) {
         this.core.loadLevel(levelNumber);
+        this.caveIntroUntil = performance.now() + 900;
 
         // Reset adapter-only presentation state for the new level.
         this.particles = [];
@@ -481,6 +520,11 @@ class Game {
             const caveName = this.levelName ? ` - ${this.levelName}` : '';
             this.levelElement.textContent = `Cave ${String.fromCharCode(64 + this.level)}${caveName}`;
         }
+
+        if (h.lives !== this.lives) {
+            h.lives = this.lives;
+            this.livesElement.textContent = `Lives: ${this.lives}`;
+        }
     }
     
     gameLoop() {
@@ -496,7 +540,10 @@ class Game {
         this.gameTickAccumulator += cappedDelta;
         while (this.gameTickAccumulator >= this.gameTickRate) {
             // Break immediately if game ended mid-tick (death, level complete)
-            if (this.gameOver || this.levelComplete) break;
+            if (this.gameOver || this.levelComplete || this.isDying || performance.now() < this.caveIntroUntil) {
+                this.gameTickAccumulator = 0;
+                break;
+            }
             
             // 1. Player moves FIRST (gives time to escape falling objects)
             if (this.demoMode) {
@@ -590,14 +637,17 @@ class Game {
         
         this.updateParticles(cappedDelta / 16);
         this.render();
+        this.updateCameraTransform();
         this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     }
     
     updatePhysics() {
         if (!this.physics) return;
-        const { crushed } = this.core.stepPhysics();
+        const { crushed, updated, movement } = this.core.stepPhysics();
         if (crushed) {
             this.handlePlayerDeath('Crushed!');
+        } else if (updated && movement === 'land') {
+            this.sound.play('fall');
         }
     }
     
@@ -945,9 +995,14 @@ class Game {
         this.playerIdleTimer = 0;
         this.playerIdleFrame = 0;
         
+        const target = DIRECTIONS[direction];
+        const targetElement = target
+            ? this.grid[this.playerPosition.y + target.y]?.[this.playerPosition.x + target.x]
+            : null;
         const events = this.core.movePlayer(direction);
         
         if (events.success) {
+            if (targetElement === ELEMENT_TYPES.DIRT) this.sound.play('move');
             if (events.collected) {
                 this.sound.play('collect');
                 if (events.exitOpened) {
@@ -960,12 +1015,12 @@ class Game {
             if (events.reachedExit) {
                 this.completeLevel();
             }
-            
-            if (events.crushed) {
-                this.handlePlayerDeath('Enemy contact!');
-            }
-            
+
             this.updateHUD();
+        }
+
+        if (events.crushed) {
+            this.handlePlayerDeath('Enemy contact!');
         }
     }
     
@@ -1000,12 +1055,24 @@ class Game {
     }
     
     handlePlayerDeath(reason) {
+        if (this.isDying || this.gameOver) return;
         this.sound.play('crush');
-        this.gameOver = true;
         this.isRunning = false;
         this.isPaused = false;
-        this.setGameplayUiState(false);
         this.stopTimer();
+        this.lives--;
+        this.updateHUD();
+
+        if (this.lives > 0) {
+            this.isDying = true;
+            this.setGameplayUiState(!this.demoMode);
+            this.render();
+            this.deathTimeout = setTimeout(() => this.retryLevel(), 1400);
+            return;
+        }
+
+        this.gameOver = true;
+        this.setGameplayUiState(false);
         // Show restart button when game is over
         this.restartButton.classList.remove('hidden');
         this.startButton.classList.add('hidden');
@@ -1031,6 +1098,17 @@ class Game {
                 saveHighScore('Player', this.score, this.level);
             }
         }
+    }
+
+    retryLevel() {
+        this.isDying = false;
+        this.isRunning = true;
+        this.gameOver = false;
+        this.setGameplayUiState(!this.demoMode);
+        this.loadLevel(this.level);
+        this.startTimer();
+        this.lastUpdateTime = performance.now();
+        this.gameLoop();
     }
     
     completeLevel() {
@@ -1195,7 +1273,11 @@ class Game {
             this.ctx.globalAlpha = 1;
         }
         
-        if (this.isPaused) {
+        if (this.isDying) {
+            this.drawMessage('ROCKFORD DOWN', `${this.lives} LIVES LEFT`, C64.LIGHT_RED);
+        } else if (performance.now() < this.caveIntroUntil) {
+            this.drawMessage(`CAVE ${String.fromCharCode(64 + this.level)}`, this.levelName, C64.CYAN);
+        } else if (this.isPaused) {
             this.drawMessage('PAUSED', 'Press ESC to resume', C64.YELLOW);
         } else if (this.gameOver) {
             this.drawMessage('GAME OVER', 'Press Restart', C64.RED);
@@ -1292,7 +1374,7 @@ class Game {
         this.cancelDemoTimeout();
         this.demoTimeout = setTimeout(() => {
             this.startGame(true); // Start in demo mode
-        }, 5000); // 5 seconds
+        }, 18000);
     }
     
     cancelDemoTimeout() {
@@ -1349,10 +1431,10 @@ class Game {
         this.ctx.fillStyle = C64.YELLOW;
         this.ctx.fillText('BOULDER DASH', centerX, centerY);
         
-        // "BY PETER LIEPA" subtitle
+        // Clearly identify this as an independent homage.
         this.ctx.font = '14px "Press Start 2P", monospace';
         this.ctx.fillStyle = C64.CYAN;
-        this.ctx.fillText('BY PETER LIEPA', centerX, centerY + 50);
+        this.ctx.fillText('A C64-STYLE HOMAGE', centerX, centerY + 50);
         
         // Diamond sprites decoration
         this.ctx.fillStyle = C64.WHITE;
@@ -1372,10 +1454,10 @@ class Game {
         this.ctx.fillStyle = C64.LIGHT_GREEN;
         this.ctx.fillText('CAVE A - INTRO', centerX, centerY + 180);
         
-        // Copyright
+        // Project edition credit
         this.ctx.font = '10px "Press Start 2P", monospace';
         this.ctx.fillStyle = C64.LIGHT_BLUE;
-        this.ctx.fillText('\u00A9 1984 FIRST STAR SOFTWARE', centerX, this.canvas.height - 30);
+        this.ctx.fillText('ORIGINAL WEB CAVES', centerX, this.canvas.height - 30);
         
         // Request next frame for animation (tracked to prevent leak)
         if (!this.isRunning) {

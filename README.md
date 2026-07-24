@@ -1,6 +1,6 @@
 # 💎 Boulder Dash - Retro Arcade Game
 
-A modern Progressive Web App (PWA) implementation of the classic Boulder Dash arcade game with retro 80s aesthetics, procedurally generated levels, and full mobile support.
+A C64-inspired cave-digging Progressive Web App with original layouts, procedural continuation, and full mobile support. It is an independent homage to the style and mechanics popularized by Boulder Dash.
 
 ![Boulder Dash](https://img.shields.io/badge/Game-Boulder%20Dash-00ffff?style=for-the-badge)
 ![PWA Ready](https://img.shields.io/badge/PWA-Ready-ff00ff?style=for-the-badge)
@@ -14,10 +14,11 @@ Serve the repository root locally or publish it with a static host such as GitHu
 
 ### 🎯 Gameplay
 - **Classic Boulder Dash Mechanics** - Dig through dirt, collect diamonds, avoid falling rocks
-- **16 Classic Caves + Procedural Continuation** - Classic cave patterns with generated levels after the original set
+- **16 Hand-Authored Caves + Procedural Continuation** - Original C64-style layouts followed by generated challenges
 - **Classic Enemy Movement** - Fireflies and butterflies follow Boulder Dash-style wall-following rules
 - **Physics Engine** - Realistic boulder rolling and falling mechanics
 - **Grab Mechanic** - Hold SPACE + direction to grab without moving
+- **Three-Life Runs** - Retry the current cave after a mistake without losing the whole run
 
 ### 📱 Mobile First
 - **Touch Controls** - Virtual D-pad for mobile devices
@@ -35,7 +36,7 @@ Serve the repository root locally or publish it with a static host such as GitHu
 - **80s Arcade Style** - Neon colors, scanlines, CRT effects
 - **Procedural Graphics** - All assets generated from code
 - **Retro Sound Effects** - Procedural audio generation
-- **Arcade Font & Effects** - Authentic retro feel
+- **Arcade Font & Effects** - C64-inspired retro feel
 
 ### 🔥 Modern Features
 - **Firebase Integration** - High score tracking (optional)
@@ -94,7 +95,8 @@ Serve the repository root locally or publish it with a static host such as GitHu
 - **ESC** - Pause game
 
 #### Mobile
-- **Virtual D-Pad** - Move player (bottom-right corner)
+- **Two-Thumb Controls** - Movement on the left, grab and pause on the right
+- **Player-Centered Camera** - Portrait screens keep hazards readable instead of shrinking the entire cave
 - **GRAB Button** - Hold to grab items without moving
 
 ### Objectives

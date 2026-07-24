@@ -1,5 +1,5 @@
-import { ELEMENT_TYPES, DIRECTIONS } from './constants.js?v=1.3.0';
-import { isInBounds, cloneGrid } from './utils.js?v=1.3.0';
+import { ELEMENT_TYPES, DIRECTIONS } from './constants.js?v=1.4.2';
+import { isInBounds, cloneGrid } from './utils.js?v=1.4.2';
 
 /**
  * Handle the physics and game rules
@@ -117,6 +117,10 @@ export class GamePhysics {
                     }
                 } else {
                     // On dirt or other non-empty surface — at rest
+                    if (this.fallingObjects.has(key)) {
+                        this.lastUpdatedCell = { x, y, type: 'land' };
+                        physicsUpdated = true;
+                    }
                     this.fallingObjects.delete(key);
                 }
             }

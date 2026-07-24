@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="Classic Boulder Dash arcade game - Collect diamonds, avoid falling rocks, and escape! Retro 80s gaming action with modern PWA features.">
+    <meta name="description" content="A C64-inspired cave-digging arcade homage. Collect diamonds, avoid falling rocks, and escape.">
     <meta name="keywords" content="boulder dash, arcade game, retro game, puzzle game, diamond collector, pwa game">
     <meta name="author" content="Boulder Dash Team">
     <meta name="mobile-web-app-capable" content="yes">
@@ -14,27 +14,19 @@
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="Boulder Dash - Retro Arcade Game">
-    <meta property="og:description" content="Classic Boulder Dash arcade game - Collect diamonds, avoid falling rocks, and escape!">
+    <meta property="og:description" content="A C64-inspired cave-digging arcade homage with original cave layouts.">
     <meta property="og:image" content="./public/icon-512.svg">
     <meta property="og:url" content="./">
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Boulder Dash - Retro Arcade Game">
-    <meta name="twitter:description" content="Classic Boulder Dash arcade game - Collect diamonds, avoid falling rocks, and escape!">
+    <meta name="twitter:description" content="A C64-inspired cave-digging arcade homage with original cave layouts.">
     
     <title>Boulder Dash - Retro Arcade Game</title>
     
-    <!-- Google Fonts: Press Start 2P -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    
-    <!-- Preload critical resources -->
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://www.gstatic.com">
-    
-    <link rel="stylesheet" href="./style.css?v=1.3.0">
+    <link rel="preload" href="./public/press-start-2p-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="./style.css?v=1.4.2">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="./public/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="./public/icon-192.svg">
@@ -53,9 +45,12 @@
                 <div id="diamonds">Diamonds: 0/0</div>
                 <div id="time">Time: 00:00</div>
                 <div id="level">Level: 1</div>
+                <div id="lives">Lives: 3</div>
             </div>
         </div>
-        <canvas id="gameCanvas"></canvas>
+        <div class="playfield-viewport">
+            <canvas id="gameCanvas"></canvas>
+        </div>
         <div class="game-controls">
             <div class="controls-info">
                 <p>Use arrow keys or WASD to move</p>
@@ -70,6 +65,8 @@
             <h2 class="help-title">How to Play</h2>
             <ul class="help-list">
                 <li>🎮 Use <strong>Arrow keys</strong> or <strong>WASD</strong> to move</li>
+                <li>✋ Hold <strong>Space + a direction</strong> to grab without moving</li>
+                <li>Ⅱ Press <strong>Escape</strong> to pause</li>
                 <li>💎 Collect enough diamonds to open the exit</li>
                 <li>🪨 Push boulders to clear paths and crush enemies</li>
                 <li>⚠️ Avoid falling rocks or being crushed</li>
@@ -82,14 +79,17 @@
     
     <!-- Mobile Touch Controls -->
     <div id="touchControls" class="touch-controls hidden">
-        <div class="dpad-container">
+        <div class="dpad-container" aria-label="Movement controls">
             <div class="dpad">
                 <button class="dpad-btn dpad-up" data-direction="UP" aria-label="Move Up">▲</button>
                 <button class="dpad-btn dpad-left" data-direction="LEFT" aria-label="Move Left">◄</button>
-                <button class="dpad-btn dpad-center" id="grabButton" aria-label="Grab">GRAB</button>
                 <button class="dpad-btn dpad-right" data-direction="RIGHT" aria-label="Move Right">►</button>
                 <button class="dpad-btn dpad-down" data-direction="DOWN" aria-label="Move Down">▼</button>
             </div>
+        </div>
+        <div class="action-controls" aria-label="Action controls">
+            <button class="action-btn grab-btn" id="grabButton" aria-label="Hold to grab">GRAB</button>
+            <button class="action-btn pause-btn" id="pauseButton" aria-label="Pause game">Ⅱ</button>
         </div>
     </div>
     
@@ -118,6 +118,6 @@
         }
     </script>
     
-    <script type="module" src="./src/game.js?v=1.3.0"></script>
+    <script type="module" src="./src/game.js?v=1.4.2"></script>
 </body>
 </html>
